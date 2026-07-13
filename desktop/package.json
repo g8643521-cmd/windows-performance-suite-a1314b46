@@ -3,13 +3,19 @@
   "version": "0.15.0-a",
   "description": "NOVYX — Premium Windows game optimizer",
   "main": "electron/main.cjs",
-  "author": "NOVYX",
+  "author": {
+    "name": "NOVYX",
+    "email": "hello@novyx.app"
+  },
   "license": "UNLICENSED",
   "scripts": {
     "dev": "vite",
     "build:renderer": "vite build",
-    "package:win": "electron-packager . NOVYX --platform=win32 --arch=x64 --out=release --overwrite --icon=build/icon.ico --prune=true --ignore='^/(release|src|electron-src|.vite)($|/)' --ignore='(tsconfig.*|vite.config.*|README.md|package-lock.json|bun.lock)$'",
-    "package": "npm run build:renderer && npm run package:win"
+    "package:win-legacy": "electron-packager . NOVYX --platform=win32 --arch=x64 --out=release --overwrite --icon=build/icon.ico --prune=true --ignore='^/(release|src|electron-src|.vite|dist-installer)($|/)' --ignore='(tsconfig.*|vite.config.*|README.md|package-lock.json|bun.lock)$'",
+    "package": "npm run build:renderer && npm run package:win-legacy",
+    "dist:win": "npm run build:renderer && electron-builder --win --publish=never",
+    "dist:win-installer": "npm run build:renderer && electron-builder --win nsis --publish=never",
+    "dist:win-portable": "npm run build:renderer && electron-builder --win zip --publish=never"
   },
   "devDependencies": {
     "@electron/packager": "^18.4.4",
@@ -18,6 +24,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
     "vite": "^5.4.21"
@@ -27,5 +34,54 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "systeminformation": "^5.31.17"
+  },
+  "build": {
+    "appId": "com.novyx.app",
+    "productName": "NOVYX",
+    "copyright": "Copyright © 2026 NOVYX",
+    "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "zip",  "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico",
+      "publisherName": "NOVYX",
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NOVYX",
+      "menuCategory": "NOVYX",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "uninstallDisplayName": "NOVYX ${version}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "artifactName": "NOVYX-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "NOVYX-Portable-${version}.${ext}"
+    }
   }
 }
