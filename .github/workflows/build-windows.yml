@@ -1,0 +1,131 @@
+name: Build NOVYX for Windows
+
+# Bygger både NSIS-installer (NOVYX-Setup-<version>.exe) og Portable ZIP
+# (NOVYX-Portable-<version>.zip) fra samme kildekode i desktop/.
+#
+# Kør automatisk på push af en tag (v*.*.*) eller manuelt via workflow_dispatch.
+# Ved tag-push oprettes også et GitHub Release med begge artefakter vedhæftet.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Opret GitHub Release med artefakterne"
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build Windows artifacts
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: desktop
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read version
+        id: pkg
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "NOVYX version: $version"
+
+      - name: Build renderer + installer + portable
+        env:
+          # Deaktiver code-signing i CI. Rigtig signering tilføjes når certifikat findes.
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npm run dist:win
+
+      - name: Compute SHA-256
+        id: hash
+        run: |
+          cd dist-installer
+          setup_file="NOVYX-Setup-${{ steps.pkg.outputs.version }}.exe"
+          portable_file="NOVYX-${{ steps.pkg.outputs.version }}-win-x64.zip"
+          setup_sha=$(sha256sum "$setup_file" | awk '{print $1}')
+          portable_sha=$(sha256sum "$portable_file" | awk '{print $1}')
+          setup_size=$(stat -c%s "$setup_file")
+          portable_size=$(stat -c%s "$portable_file")
+          echo "setup_sha=$setup_sha"       >> "$GITHUB_OUTPUT"
+          echo "portable_sha=$portable_sha" >> "$GITHUB_OUTPUT"
+          echo "setup_size=$setup_size"     >> "$GITHUB_OUTPUT"
+          echo "portable_size=$portable_size" >> "$GITHUB_OUTPUT"
+          {
+            echo "## NOVYX v${{ steps.pkg.outputs.version }}"
+            echo ""
+            echo "| Artefakt | Størrelse | SHA-256 |"
+            echo "|---|---|---|"
+            echo "| \`$setup_file\` | $setup_size bytes | \`$setup_sha\` |"
+            echo "| \`$portable_file\` | $portable_size bytes | \`$portable_sha\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVYX-Setup-${{ steps.pkg.outputs.version }}
+          path: desktop/dist-installer/NOVYX-Setup-${{ steps.pkg.outputs.version }}.exe
+          if-no-files-found: error
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NOVYX-Portable-${{ steps.pkg.outputs.version }}
+          path: desktop/dist-installer/NOVYX-${{ steps.pkg.outputs.version }}-win-x64.zip
+          if-no-files-found: error
+
+      - name: Upload latest.yml (auto-update manifest)
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-yml-${{ steps.pkg.outputs.version }}
+          path: desktop/dist-installer/latest.yml
+          if-no-files-found: warn
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release == true
+        uses: softprops/action-gh-release@v2
+        with:
+          name: NOVYX v${{ steps.pkg.outputs.version }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('v{0}', steps.pkg.outputs.version) }}
+          draft: false
+          prerelease: ${{ contains(steps.pkg.outputs.version, '-a') || contains(steps.pkg.outputs.version, '-b') || contains(steps.pkg.outputs.version, '-rc') }}
+          generate_release_notes: true
+          body: |
+            ## Downloads
+
+            | Filtype | Fil | Anbefaling |
+            |---|---|---|
+            | 🛠 Installer (NSIS) | `NOVYX-Setup-${{ steps.pkg.outputs.version }}.exe` | Anbefalet for de fleste |
+            | 📦 Portable | `NOVYX-${{ steps.pkg.outputs.version }}-win-x64.zip` | Ingen installation krævet |
+
+            ### Checksums (SHA-256)
+
+            ```
+            NOVYX-Setup-${{ steps.pkg.outputs.version }}.exe
+              ${{ steps.hash.outputs.setup_sha }}
+
+            NOVYX-${{ steps.pkg.outputs.version }}-win-x64.zip
+              ${{ steps.hash.outputs.portable_sha }}
+            ```
+          files: |
+            desktop/dist-installer/NOVYX-Setup-${{ steps.pkg.outputs.version }}.exe
+            desktop/dist-installer/NOVYX-${{ steps.pkg.outputs.version }}-win-x64.zip
+            desktop/dist-installer/latest.yml
