@@ -2,7 +2,7 @@ import { memo, useState, type JSX } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { BoostPage } from "./pages/Boost";
-import { HealthScanPage } from "./pages/HealthScan";
+import { SystemScanPage } from "./pages/SystemScan";
 import { ScanPage as SpecsPage } from "./pages/Scan";
 import { TweaksPage } from "./pages/Tweaks";
 import { GamesPage as ArcadePage } from "./pages/Games";
@@ -13,7 +13,7 @@ import { LabPage } from "./pages/Lab";
 import { SettingsPage } from "./pages/Settings";
 
 const MBoost     = memo(BoostPage);
-const MScan      = memo(HealthScanPage);
+const MScan      = memo(SystemScanPage);
 const MSpecs     = memo(SpecsPage);
 const MTweaks    = memo(TweaksPage);
 const MArcade    = memo(ArcadePage);
@@ -30,7 +30,7 @@ type Route =
 
 const META: Record<Route, { title: string; subtitle: string }> = {
   boost:     { title: "Boost",     subtitle: "Live ydelse · frigør hukommelse · ryd op" },
-  scan:      { title: "Scan",      subtitle: "Systemtjek · advarsler · anbefalinger" },
+  scan:      { title: "Scan",      subtitle: "Intelligent system scan · rens · Fix pr. kategori" },
   specs:     { title: "Specs",     subtitle: "Fuld hardware-oversigt · sensorer · lagring" },
   tweaks:    { title: "Tweaks",    subtitle: "Windows-optimering · game mode · strøm" },
   arcade:    { title: "Arcade",    subtitle: "Dit spilbibliotek · Steam og Epic" },

@@ -884,6 +884,305 @@ ipcMain.handle("app:relaunchAsAdmin", async () => {
   }
 });
 
+// ═════════════════════════════════════════════════════════════
+// M2 · Intelligent System Scan
+// Aggregerer 9 kategorier med rigtig størrelse + Fix-handling.
+// Hver subscan er isoleret: en fejl i én kategori afbryder ikke resten.
+// ═════════════════════════════════════════════════════════════
+
+// ---------- Browser-cache stier (Windows) ----------
+function browserCachePaths() {
+  const local = process.env.LOCALAPPDATA;
+  const roaming = process.env.APPDATA;
+  const out = [];
+  if (local) {
+    out.push({ browser: "Chrome",  path: path.join(local, "Google", "Chrome", "User Data", "Default", "Cache") });
+    out.push({ browser: "Edge",    path: path.join(local, "Microsoft", "Edge", "User Data", "Default", "Cache") });
+    out.push({ browser: "Brave",   path: path.join(local, "BraveSoftware", "Brave-Browser", "User Data", "Default", "Cache") });
+    out.push({ browser: "Opera",   path: path.join(local, "Opera Software", "Opera Stable", "Cache") });
+  }
+  if (roaming) {
+    // Firefox har profil-mapper — vi udvider dem separat
+    out.push({ browser: "Firefox", path: path.join(roaming, "Mozilla", "Firefox", "Profiles"), isFirefox: true });
+  }
+  return out;
+}
+
+async function firefoxCacheDirs(profilesDir) {
+  try {
+    const entries = await fsp.readdir(profilesDir, { withFileTypes: true });
+    const dirs = [];
+    for (const e of entries) {
+      if (!e.isDirectory()) continue;
+      const c2 = path.join(profilesDir, e.name, "cache2");
+      try { const st = await fsp.stat(c2); if (st.isDirectory()) dirs.push(c2); } catch {}
+    }
+    return dirs;
+  } catch { return []; }
+}
+
+// ---------- Sub-scans ----------
+async function scanTemp() {
+  const folders = tempFolders();
+  const results = await Promise.all(folders.map(async (f) => {
+    const s = await dirSize(f);
+    return { path: f, bytes: s.total, files: s.files };
+  }));
+  const bytes = results.reduce((a, b) => a + b.bytes, 0);
+  const files = results.reduce((a, b) => a + b.files, 0);
+  return {
+    id: "temp",
+    label: "Midlertidige filer",
+    detail: `${files.toLocaleString("da-DK")} filer i ${results.length} mapper`,
+    bytes,
+    severity: bytes > 2e9 ? "warn" : bytes > 5e8 ? "notice" : "ok",
+    fix: bytes > 0 ? { id: "temp", label: "Slet midlertidige filer" } : null,
+    items: results,
+  };
+}
+
+async function scanRecycleBin() {
+  const r = await runPowerShell(
+    "$s=(New-Object -ComObject Shell.Application).NameSpace(0xA); $items=@($s.Items()); $b=0; foreach($i in $items){ $b += $i.Size }; [PSCustomObject]@{count=$items.Count; bytes=$b} | ConvertTo-Json -Compress",
+    6000,
+  );
+  if (!r.ok) return { id: "recyclebin", label: "Papirkurv", detail: "Kunne ikke læse", bytes: 0, severity: "unknown", fix: null, error: r.error };
+  const d = r.data || {};
+  return {
+    id: "recyclebin",
+    label: "Papirkurv",
+    detail: `${d.count || 0} elementer`,
+    bytes: Number(d.bytes) || 0,
+    severity: (d.bytes || 0) > 1e9 ? "notice" : "ok",
+    fix: (d.count || 0) > 0 ? { id: "recyclebin", label: "Tøm papirkurv" } : null,
+  };
+}
+
+async function scanWindowsUpdateCache() {
+  const dir = path.join(process.env.SystemRoot || "C:\\Windows", "SoftwareDistribution", "Download");
+  const s = await dirSize(dir);
+  return {
+    id: "wucache",
+    label: "Windows Update-cache",
+    detail: `${s.files.toLocaleString("da-DK")} filer`,
+    bytes: s.total,
+    severity: s.total > 2e9 ? "notice" : "ok",
+    fix: s.total > 0 ? { id: "wucache", label: "Ryd WU-cache (admin)", admin: true } : null,
+  };
+}
+
+async function scanBrowserCaches() {
+  const bases = browserCachePaths();
+  const perBrowser = [];
+  for (const b of bases) {
+    if (b.isFirefox) {
+      const dirs = await firefoxCacheDirs(b.path);
+      let bytes = 0, files = 0;
+      for (const d of dirs) { const s = await dirSize(d); bytes += s.total; files += s.files; }
+      perBrowser.push({ browser: b.browser, bytes, files, paths: dirs });
+    } else {
+      try { await fsp.stat(b.path); } catch { continue; }
+      const s = await dirSize(b.path);
+      perBrowser.push({ browser: b.browser, bytes: s.total, files: s.files, paths: [b.path] });
+    }
+  }
+  const bytes = perBrowser.reduce((a, b) => a + b.bytes, 0);
+  return {
+    id: "browsercache",
+    label: "Browser-cache",
+    detail: perBrowser.length ? perBrowser.map((b) => b.browser).join(" · ") : "Ingen browsere fundet",
+    bytes,
+    severity: bytes > 1e9 ? "notice" : "ok",
+    fix: bytes > 0 ? { id: "browsercache", label: "Slet browser-cache" } : null,
+    items: perBrowser,
+  };
+}
+
+async function scanStartup() {
+  const r = await runPowerShell(
+    "Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location,User | ConvertTo-Json -Compress",
+    6000,
+  );
+  if (!r.ok) return { id: "startup", label: "Opstartsprogrammer", detail: "Kunne ikke læse", bytes: 0, severity: "unknown", fix: null, error: r.error };
+  const arr = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+  return {
+    id: "startup",
+    label: "Opstartsprogrammer",
+    detail: `${arr.length} programmer starter med Windows`,
+    bytes: 0,
+    severity: arr.length > 15 ? "notice" : "ok",
+    fix: { id: "startup", label: "Åbn Task Manager" },
+    items: arr.map((a) => ({ name: a.Name, command: a.Command, location: a.Location, user: a.User })),
+  };
+}
+
+async function scanServices() {
+  const r = await runPowerShell(
+    "Get-Service | Where-Object { $_.StartType -eq 'Automatic' -and $_.Status -ne 'Running' } | Select-Object Name,DisplayName,Status,StartType | ConvertTo-Json -Compress",
+    6000,
+  );
+  if (!r.ok) return { id: "services", label: "Tjenester", detail: "Kunne ikke læse", bytes: 0, severity: "unknown", fix: null, error: r.error };
+  const arr = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+  return {
+    id: "services",
+    label: "Tjenester (automatiske men stoppede)",
+    detail: `${arr.length} tjenester`,
+    bytes: 0,
+    severity: arr.length > 5 ? "notice" : "ok",
+    fix: { id: "services", label: "Åbn services.msc" },
+    items: arr.map((a) => ({ name: a.Name, displayName: a.DisplayName, status: a.Status, startType: a.StartType })),
+  };
+}
+
+async function scanScheduledTasks() {
+  const r = await runPowerShell(
+    "Get-ScheduledTask | Where-Object { $_.State -eq 'Ready' -and $_.TaskPath -notlike '\\Microsoft\\*' } | Select-Object TaskName,TaskPath,State,Author | ConvertTo-Json -Compress",
+    8000,
+  );
+  if (!r.ok) return { id: "tasks", label: "Planlagte opgaver", detail: "Kunne ikke læse", bytes: 0, severity: "unknown", fix: null, error: r.error };
+  const arr = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+  return {
+    id: "tasks",
+    label: "Planlagte opgaver (tredjeparts)",
+    detail: `${arr.length} opgaver`,
+    bytes: 0,
+    severity: arr.length > 20 ? "notice" : "ok",
+    fix: { id: "tasks", label: "Åbn taskschd.msc" },
+    items: arr,
+  };
+}
+
+async function scanLargeFiles() {
+  const home = os.homedir().replace(/'/g, "''");
+  const r = await runPowerShell(
+    `Get-ChildItem -LiteralPath '${home}' -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Length -gt 524288000 } | Sort-Object Length -Descending | Select-Object -First 20 FullName,Length,LastWriteTime | ConvertTo-Json -Compress`,
+    30000,
+  );
+  if (!r.ok) return { id: "largefiles", label: "Store filer (>500 MB)", detail: "Kunne ikke scanne", bytes: 0, severity: "unknown", fix: null, error: r.error };
+  const arr = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+  const bytes = arr.reduce((a, b) => a + (Number(b.Length) || 0), 0);
+  return {
+    id: "largefiles",
+    label: "Store filer i din brugermappe",
+    detail: `Top ${arr.length} filer over 500 MB`,
+    bytes,
+    severity: arr.length > 10 ? "notice" : "ok",
+    fix: null,
+    items: arr.map((a) => ({ path: a.FullName, bytes: Number(a.Length) || 0, mtime: a.LastWriteTime })),
+  };
+}
+
+async function scanSmart() {
+  const r = await runPowerShell(
+    "Get-PhysicalDisk | Select-Object FriendlyName,MediaType,HealthStatus,OperationalStatus,Size,BusType | ConvertTo-Json -Compress",
+    6000,
+  );
+  if (!r.ok) return { id: "smart", label: "SMART-diskstatus", detail: "Kunne ikke læse", bytes: 0, severity: "unknown", fix: null, error: r.error };
+  const arr = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+  const bad = arr.filter((d) => d.HealthStatus && d.HealthStatus !== "Healthy");
+  return {
+    id: "smart",
+    label: "SMART-diskstatus",
+    detail: arr.length ? arr.map((d) => `${d.FriendlyName}: ${d.HealthStatus}`).join(" · ") : "Ingen diske fundet",
+    bytes: 0,
+    severity: bad.length > 0 ? "warn" : "ok",
+    fix: null,
+    items: arr.map((d) => ({
+      name: d.FriendlyName, mediaType: d.MediaType, health: d.HealthStatus,
+      status: d.OperationalStatus, bytes: Number(d.Size) || 0, bus: d.BusType,
+    })),
+  };
+}
+
+// ---------- Aggregator ----------
+ipcMain.handle("scan:full", async () => {
+  if (process.platform !== "win32") {
+    return { ok: false, error: "M2 System Scan er kun tilgængelig på Windows" };
+  }
+  const started = Date.now();
+  const results = await Promise.all([
+    scanTemp().catch((e) => ({ id: "temp", label: "Midlertidige filer", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanRecycleBin().catch((e) => ({ id: "recyclebin", label: "Papirkurv", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanWindowsUpdateCache().catch((e) => ({ id: "wucache", label: "Windows Update-cache", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanBrowserCaches().catch((e) => ({ id: "browsercache", label: "Browser-cache", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanStartup().catch((e) => ({ id: "startup", label: "Opstartsprogrammer", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanServices().catch((e) => ({ id: "services", label: "Tjenester", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanScheduledTasks().catch((e) => ({ id: "tasks", label: "Planlagte opgaver", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanLargeFiles().catch((e) => ({ id: "largefiles", label: "Store filer", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+    scanSmart().catch((e) => ({ id: "smart", label: "SMART-diskstatus", error: e?.message || String(e), bytes: 0, severity: "unknown", fix: null })),
+  ]);
+  const totalReclaimable = results
+    .filter((r) => r.fix && (r.bytes || 0) > 0)
+    .reduce((a, b) => a + (b.bytes || 0), 0);
+  return {
+    ok: true,
+    data: {
+      ts: started,
+      durationMs: Date.now() - started,
+      totalReclaimable,
+      categories: results,
+    },
+  };
+});
+
+// ---------- Fix-handlinger ----------
+async function fixRecycleBin() {
+  const r = await runPowerShell("Clear-RecycleBin -Force -ErrorAction Stop; [PSCustomObject]@{ok=$true} | ConvertTo-Json -Compress", 15000);
+  return r.ok ? { ok: true } : { ok: false, error: r.error };
+}
+
+async function fixWuCache() {
+  const script = [
+    "Stop-Service -Name wuauserv -Force -ErrorAction SilentlyContinue",
+    "Stop-Service -Name bits -Force -ErrorAction SilentlyContinue",
+    "Remove-Item -Path 'C:\\Windows\\SoftwareDistribution\\Download\\*' -Recurse -Force -ErrorAction SilentlyContinue",
+    "Start-Service -Name bits -ErrorAction SilentlyContinue",
+    "Start-Service -Name wuauserv -ErrorAction SilentlyContinue",
+    "[PSCustomObject]@{ok=$true} | ConvertTo-Json -Compress",
+  ].join("; ");
+  const r = await runPowerShell(script, 30000);
+  return r.ok ? { ok: true } : { ok: false, error: r.error, requiresAdmin: true };
+}
+
+async function fixBrowserCaches() {
+  const bases = browserCachePaths();
+  let freed = 0, removed = 0, skipped = 0;
+  for (const b of bases) {
+    if (b.isFirefox) {
+      const dirs = await firefoxCacheDirs(b.path);
+      for (const d of dirs) { const s = await cleanDir(d); freed += s.freed; removed += s.removed; skipped += s.skipped; }
+    } else {
+      try { await fsp.stat(b.path); } catch { continue; }
+      const s = await cleanDir(b.path);
+      freed += s.freed; removed += s.removed; skipped += s.skipped;
+    }
+  }
+  return { ok: true, freed, removed, skipped };
+}
+
+ipcMain.handle("scan:fix", async (_e, fixId) => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun Windows" };
+  try {
+    switch (fixId) {
+      case "temp": {
+        const target = process.env.TEMP;
+        if (!target) return { ok: false, error: "Ingen TEMP-mappe" };
+        const r = await cleanDir(target);
+        return { ok: true, data: { path: target, ...r } };
+      }
+      case "recyclebin":   return await fixRecycleBin();
+      case "wucache":      return await fixWuCache();
+      case "browsercache": return { ok: true, data: await fixBrowserCaches() };
+      case "startup":      await shell.openExternal("ms-settings:startupapps"); return { ok: true, opened: true };
+      case "services":     { const child = spawn("services.msc", [], { shell: true, detached: true, stdio: "ignore" }); child.unref(); return { ok: true, opened: true }; }
+      case "tasks":        { const child = spawn("taskschd.msc", [], { shell: true, detached: true, stdio: "ignore" }); child.unref(); return { ok: true, opened: true }; }
+      default: return { ok: false, error: "Ukendt fix-id" };
+    }
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
