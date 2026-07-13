@@ -1183,7 +1183,243 @@ ipcMain.handle("scan:fix", async (_e, fixId) => {
   }
 });
 
+// ═════════════════════════════════════════════════════════════
+// M3 · Repair Center
+// Rigtige Windows-reparations-kommandoer med live-log streaming,
+// admin-check, valgfrit systemgendannelsespunkt og cancel-support.
+// ═════════════════════════════════════════════════════════════
+
+const REPAIR2_ACTIONS = {
+  sfc: {
+    label: "SFC /scannow", admin: true, cancelable: true, restoreOffered: true,
+    description: "Verificerer og reparerer beskyttede Windows-systemfiler.",
+    exec: () => ({ exe: "sfc.exe", args: ["/scannow"] }),
+  },
+  "dism-check": {
+    label: "DISM · CheckHealth", admin: true, cancelable: true,
+    description: "Hurtig kontrol af Windows-image (ingen ændringer).",
+    exec: () => ({ exe: "dism.exe", args: ["/Online", "/Cleanup-Image", "/CheckHealth"] }),
+  },
+  "dism-scan": {
+    label: "DISM · ScanHealth", admin: true, cancelable: true,
+    description: "Grundig scanning af Windows-image (tager længere tid).",
+    exec: () => ({ exe: "dism.exe", args: ["/Online", "/Cleanup-Image", "/ScanHealth"] }),
+  },
+  "dism-restore": {
+    label: "DISM · RestoreHealth", admin: true, cancelable: true, restoreOffered: true,
+    description: "Reparerer Windows-image via Windows Update-komponenter.",
+    exec: () => ({ exe: "dism.exe", args: ["/Online", "/Cleanup-Image", "/RestoreHealth"] }),
+  },
+  flushdns: {
+    label: "Flush DNS", admin: false, cancelable: false,
+    description: "Rydder DNS-resolver-cachen (ipconfig /flushdns).",
+    exec: () => ({ exe: "ipconfig.exe", args: ["/flushdns"] }),
+  },
+  "winsock-reset": {
+    label: "Winsock Reset", admin: true, cancelable: false, restoreOffered: true, needsReboot: true,
+    description: "Nulstiller Winsock-kataloget. Kræver genstart.",
+    exec: () => ({ exe: "netsh.exe", args: ["winsock", "reset"] }),
+  },
+  "ip-reset": {
+    label: "IP Reset", admin: true, cancelable: false, restoreOffered: true, needsReboot: true,
+    description: "Nulstiller TCP/IP-stakken (netsh int ip reset). Kræver genstart.",
+    exec: () => ({ exe: "netsh.exe", args: ["int", "ip", "reset"] }),
+  },
+  "wu-reset": {
+    label: "Windows Update Reset", admin: true, cancelable: false, restoreOffered: true,
+    description: "Stopper WU-services, rydder SoftwareDistribution + catroot2, starter services igen.",
+    exec: () => {
+      const script = [
+        "Write-Output '-> Stopper Windows Update services...'",
+        "Stop-Service -Name wuauserv,cryptSvc,bits,msiserver -Force -ErrorAction SilentlyContinue",
+        "Write-Output '-> Omdoeber SoftwareDistribution + catroot2...'",
+        "$stamp = Get-Date -Format yyyyMMddHHmmss",
+        "Rename-Item -Path (Join-Path $env:SystemRoot 'SoftwareDistribution') -NewName (\"SoftwareDistribution.old.$stamp\") -Force -ErrorAction SilentlyContinue",
+        "Rename-Item -Path (Join-Path $env:SystemRoot 'System32\\catroot2') -NewName (\"catroot2.old.$stamp\") -Force -ErrorAction SilentlyContinue",
+        "Write-Output '-> Starter services igen...'",
+        "Start-Service -Name wuauserv,cryptSvc,bits,msiserver -ErrorAction SilentlyContinue",
+        "Write-Output 'OK - Windows Update-komponenter nulstillet.'",
+      ].join("; ");
+      return { exe: "powershell.exe", args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script] };
+    },
+  },
+  wsreset: {
+    label: "Microsoft Store Reset", admin: false, cancelable: false,
+    description: "Nulstiller Microsoft Store-cache (wsreset.exe).",
+    exec: () => ({ exe: "wsreset.exe", args: [] }),
+  },
+  "explorer-restart": {
+    label: "Genstart Explorer", admin: false, cancelable: false,
+    description: "Genstarter Windows Stifinder og proceslinjen.",
+    exec: () => {
+      const script = "taskkill /f /im explorer.exe | Out-Null; Start-Sleep -Milliseconds 500; Start-Process explorer.exe; Write-Output 'Explorer genstartet.'";
+      return { exe: "powershell.exe", args: ["-NoProfile", "-Command", script] };
+    },
+  },
+  "spooler-restart": {
+    label: "Print Spooler Restart", admin: true, cancelable: false,
+    description: "Stopper og starter Print Spooler (Spooler) tjenesten.",
+    exec: () => {
+      const script = "Stop-Service -Name Spooler -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 400; Start-Service -Name Spooler; Write-Output ('Spooler status: ' + (Get-Service Spooler).Status)";
+      return { exe: "powershell.exe", args: ["-NoProfile", "-Command", script] };
+    },
+  },
+  "iconcache-rebuild": {
+    label: "Genopbyg ikon-cache", admin: false, cancelable: false,
+    description: "Sletter ikon- og miniature-cache og genstarter Explorer.",
+    exec: () => {
+      const script = [
+        "taskkill /f /im explorer.exe 2>$null | Out-Null",
+        "Start-Sleep -Milliseconds 400",
+        "$targets = @((Join-Path $env:LOCALAPPDATA 'IconCache.db'), (Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Explorer\\iconcache_*.db'), (Join-Path $env:LOCALAPPDATA 'Microsoft\\Windows\\Explorer\\thumbcache_*.db'))",
+        "foreach ($t in $targets) { Get-ChildItem -Path $t -Force -ErrorAction SilentlyContinue | ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue; Write-Output ('Slettet: ' + $_.FullName) } }",
+        "Start-Process explorer.exe",
+        "Write-Output 'Ikon-cache genopbygget.'",
+      ].join("; ");
+      return { exe: "powershell.exe", args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script] };
+    },
+  },
+  "network-repair": {
+    label: "Netværksreparation", admin: true, cancelable: false,
+    description: "ipconfig /release + /renew + /flushdns og ARP-cache nulstilling.",
+    exec: () => {
+      const script = "ipconfig /release; ipconfig /renew; ipconfig /flushdns; arp -d *; Write-Output 'Netvaerks-reset udfoert.'";
+      return { exe: "powershell.exe", args: ["-NoProfile", "-Command", script] };
+    },
+  },
+};
+
+const activeRepairJobs = new Map(); // jobId -> child process
+
+function repairJobId() {
+  return "job_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
+}
+
+function emitRepair(win, jobId, kind, payload) {
+  if (!win || win.isDestroyed()) return;
+  try { win.webContents.send("repair2:event", { jobId, kind, ts: Date.now(), ...(payload || {}) }); } catch {}
+}
+
+function streamRepair(win, jobId, exe, args) {
+  return new Promise((resolve) => {
+    let child;
+    try {
+      child = spawn(exe, args, { windowsHide: true });
+    } catch (e) {
+      emitRepair(win, jobId, "log", { level: "err", line: `Kunne ikke starte ${exe}: ${e.message}` });
+      return resolve({ code: -1, error: e.message });
+    }
+    activeRepairJobs.set(jobId, child);
+
+    let outBuf = "", errBuf = "";
+    const flushLine = (buf, level) => {
+      const parts = buf.split(/\r\n|\n|\r/);
+      const rest = parts.pop();
+      for (const p of parts) {
+        const s = p.replace(/\x00/g, "").trim();
+        if (s) emitRepair(win, jobId, "log", { level, line: s });
+      }
+      return rest;
+    };
+    child.stdout.on("data", (b) => { outBuf = flushLine(outBuf + b.toString("utf8"), "out"); });
+    child.stderr.on("data", (b) => { errBuf = flushLine(errBuf + b.toString("utf8"), "err"); });
+    child.on("error", (e) => {
+      emitRepair(win, jobId, "log", { level: "err", line: e.message });
+      activeRepairJobs.delete(jobId);
+      resolve({ code: -1, error: e.message });
+    });
+    child.on("close", (code, signal) => {
+      if (outBuf.trim()) emitRepair(win, jobId, "log", { level: "out", line: outBuf.trim() });
+      if (errBuf.trim()) emitRepair(win, jobId, "log", { level: "err", line: errBuf.trim() });
+      activeRepairJobs.delete(jobId);
+      resolve({ code: code == null ? -1 : code, signal });
+    });
+  });
+}
+
+async function isProcessElevated() {
+  const r = await runPowerShell(
+    "([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) | ConvertTo-Json -Compress",
+    4000,
+  );
+  return r.ok && !!r.data;
+}
+
+async function createRestorePoint(win, jobId, description) {
+  emitRepair(win, jobId, "log", { level: "info", line: `-> Opretter systemgendannelsespunkt: "${description}"` });
+  const script = [
+    "$ErrorActionPreference='Stop'",
+    "try {",
+    "  Enable-ComputerRestore -Drive 'C:\\' -ErrorAction SilentlyContinue | Out-Null",
+    `  Checkpoint-Computer -Description '${description.replace(/'/g, "''")}' -RestorePointType 'MODIFY_SETTINGS'`,
+    "  Write-Output 'RESTORE_OK'",
+    "} catch { Write-Output ('RESTORE_FAIL: ' + $_.Exception.Message) }",
+  ].join("; ");
+  return streamRepair(win, jobId, "powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script]);
+}
+
+ipcMain.handle("repair2:list", async () => ({
+  ok: true,
+  actions: Object.entries(REPAIR2_ACTIONS).map(([id, a]) => ({
+    id, label: a.label, description: a.description,
+    admin: !!a.admin, cancelable: !!a.cancelable,
+    restoreOffered: !!a.restoreOffered, needsReboot: !!a.needsReboot,
+  })),
+}));
+
+ipcMain.handle("repair2:elevated", async () => {
+  if (process.platform !== "win32") return { ok: true, elevated: false };
+  return { ok: true, elevated: await isProcessElevated() };
+});
+
+ipcMain.handle("repair2:run", async (e, payload) => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun tilgængelig på Windows" };
+  const { actionId, createRestorePoint: doRestore } = payload || {};
+  const action = REPAIR2_ACTIONS[actionId];
+  if (!action) return { ok: false, error: "Ukendt handling" };
+
+  if (action.admin) {
+    const elevated = await isProcessElevated();
+    if (!elevated) return { ok: false, needsElevation: true, error: "Kræver administrator. Genstart NOVYX som admin i Indstillinger." };
+  }
+
+  const win = BrowserWindow.fromWebContents(e.sender) || mainWindow;
+  const jobId = repairJobId();
+
+  (async () => {
+    emitRepair(win, jobId, "started", { actionId, label: action.label, admin: !!action.admin, needsReboot: !!action.needsReboot });
+    try {
+      if (action.restoreOffered && doRestore) {
+        const rp = await createRestorePoint(win, jobId, `NOVYX før ${action.label}`);
+        if (rp.code !== 0) {
+          emitRepair(win, jobId, "log", { level: "warn", line: "Systemgendannelsespunkt kunne ikke oprettes — fortsætter uden." });
+        }
+      }
+      const { exe, args } = action.exec();
+      emitRepair(win, jobId, "log", { level: "info", line: `-> ${exe} ${args.join(" ")}` });
+      const res = await streamRepair(win, jobId, exe, args);
+      if (res.signal === "SIGTERM" || res.signal === "SIGKILL") {
+        emitRepair(win, jobId, "done", { code: res.code, cancelled: true, needsReboot: false });
+      } else {
+        emitRepair(win, jobId, "done", { code: res.code, needsReboot: !!action.needsReboot, error: res.error || null });
+      }
+    } catch (err) {
+      emitRepair(win, jobId, "done", { code: -1, error: err?.message || String(err) });
+    }
+  })();
+
+  return { ok: true, jobId };
+});
+
+ipcMain.handle("repair2:cancel", async (_e, jobId) => {
+  const child = activeRepairJobs.get(jobId);
+  if (!child) return { ok: false, error: "Job kører ikke længere" };
+  try { child.kill(); } catch {}
+  return { ok: true };
+});
+
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
 
