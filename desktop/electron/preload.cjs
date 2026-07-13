@@ -68,5 +68,18 @@ contextBridge.exposeInMainWorld("novyx", {
       return () => ipcRenderer.removeListener("repair2:event", handler);
     },
   },
+
+  boost2: {
+    launchers:    () => invoke("boost2:launchers"),
+    scanGames:    () => invoke("boost2:scanGames"),
+    analyze:      () => invoke("boost2:analyze"),
+    tweaks:       () => invoke("boost2:tweaks"),
+    apply:        (ids) => invoke("boost2:apply", { ids }),
+    backups:      () => invoke("boost2:backups"),
+    restore:      (id) => invoke("boost2:restore", { id }),
+    gameProfile:  (payload) => invoke("boost2:gameProfile", payload),
+    gameProfiles: () => invoke("boost2:gameProfiles"),
+  },
 });
+
 
