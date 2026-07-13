@@ -1,0 +1,31 @@
+{
+  "name": "novyx-desktop",
+  "version": "0.15.0-a",
+  "description": "NOVYX — Premium Windows game optimizer",
+  "main": "electron/main.cjs",
+  "author": "NOVYX",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "vite",
+    "build:renderer": "vite build",
+    "package:win": "electron-packager . NOVYX --platform=win32 --arch=x64 --out=release --overwrite --icon=build/icon.ico --prune=true --ignore='^/(release|src|electron-src|.vite)($|/)' --ignore='(tsconfig.*|vite.config.*|README.md|package-lock.json|bun.lock)$'",
+    "package": "npm run build:renderer && npm run package:win"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.4.4",
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^33.4.11",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
+  },
+  "dependencies": {
+    "lucide-react": "^1.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "systeminformation": "^5.31.17"
+  }
+}
