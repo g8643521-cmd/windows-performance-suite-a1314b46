@@ -51,4 +51,9 @@ contextBridge.exposeInMainWorld("novyx", {
   diagnostics: {
     export: () => invoke("diagnostics:export"),
   },
+
+  scan: {
+    full: () => invoke("scan:full"),
+    fix: (fixId) => invoke("scan:fix", fixId),
+  },
 });
