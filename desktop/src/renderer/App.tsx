@@ -5,7 +5,7 @@ import { BoostPage } from "./pages/Boost";
 import { SystemScanPage } from "./pages/SystemScan";
 import { ScanPage as SpecsPage } from "./pages/Scan";
 import { TweaksPage } from "./pages/Tweaks";
-import { GamesPage as ArcadePage } from "./pages/Games";
+import { GameBoostPage as ArcadePage } from "./pages/GameBoost";
 import { BenchmarkPage } from "./pages/Benchmark";
 import { RepairsPage } from "./pages/Repairs";
 import { InstallPage } from "./pages/Install";
