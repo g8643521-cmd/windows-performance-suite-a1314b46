@@ -33,7 +33,7 @@ const META: Record<Route, { title: string; subtitle: string }> = {
   scan:      { title: "Scan",      subtitle: "Intelligent system scan · rens · Fix pr. kategori" },
   specs:     { title: "Specs",     subtitle: "Fuld hardware-oversigt · sensorer · lagring" },
   tweaks:    { title: "Tweaks",    subtitle: "Windows-optimering · game mode · strøm" },
-  arcade:    { title: "Arcade",    subtitle: "Dit spilbibliotek · Steam og Epic" },
+  arcade:    { title: "Game Boost", subtitle: "Registry-tweaks · profiler pr. spil · backup + gendan" },
   benchmark: { title: "Benchmark", subtitle: "Ydelsestest · CPU · GPU · lagring" },
   repairs:   { title: "Repairs",   subtitle: "SFC · DISM · netværk · sikkerhed" },
   install:   { title: "Install",   subtitle: "Installerede programmer på denne PC" },
