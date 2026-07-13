@@ -1,0 +1,1480 @@
+@import "tailwindcss";
+
+/* ============================================================
+   NOVYX Desktop — Premium Design System v3 (v0.11)
+   ------------------------------------------------------------
+   Same visual DNA as the NOVYX website:
+   deep near-black + blue (#3B82F6) + cyan (#22D3EE),
+   layered glass (sheen · noise · inner highlight · ring),
+   hero-dominant story flow. No purple dashboard clichés.
+   Absolutely no backend / no live data.
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Base surfaces (match website) ---- */
+  --bg-base:      #06070B;
+  --bg-2:         #0A0C13;
+  --bg-panel:     #0D0F17;
+  --bg-elevated:  #10131D;
+  --bg-hover:     rgba(255,255,255,0.035);
+  --bg-active:    rgba(255,255,255,0.06);
+
+  /* ---- Glass ---- */
+  --glass-bg:        rgba(255,255,255,0.035);
+  --glass-bg-2:      rgba(255,255,255,0.05);
+  --glass-bg-3:      rgba(255,255,255,0.07);
+  --glass-sidebar:   rgba(8, 10, 16, 0.55);
+  --glass-topbar:    rgba(8, 10, 16, 0.42);
+  --glass-border:    rgba(255,255,255,0.08);
+  --glass-border-hi: rgba(255,255,255,0.16);
+
+  /* Multi-layer glass "materials" (top sheen + inner ring + edge) */
+  --glass-sheen:     linear-gradient(180deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 40%);
+  --glass-edge-grad: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04) 40%, rgba(255,255,255,0.02) 100%);
+  --glass-noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/></svg>");
+
+  /* ---- Blur ---- */
+  --blur-sm: 20px;
+  --blur-md: 32px;
+  --blur-lg: 44px;
+
+  /* ---- Hairlines ---- */
+  --hairline:        rgba(255,255,255,0.07);
+  --hairline-strong: rgba(255,255,255,0.14);
+
+  /* ---- Ink ---- */
+  --ink-hi:    #F5F7FB;
+  --ink:       #E5E9F2;
+  --ink-mid:   #B9C0CE;
+  --ink-low:   #7C8598;
+  --ink-faint: #5C6578;
+
+  /* ---- Accents (match website) ---- */
+  --accent:            #3B82F6;   /* blue-500 */
+  --accent-hover:      #60A5FA;
+  --accent-2:          #22D3EE;   /* cyan-400 */
+  --accent-3:          #A5F3FC;   /* cyan-200 */
+  --accent-ink:        #FFFFFF;
+  --accent-soft:       rgba(59,130,246,0.14);
+  --accent-soft-hover: rgba(59,130,246,0.22);
+  --accent-ring:       rgba(59,130,246,0.35);
+
+  /* ---- Status ---- */
+  --success:      #22C55E;
+  --success-soft: rgba(34,197,94,0.14);
+  --warning:      #F59E0B;
+  --warning-soft: rgba(245,158,11,0.14);
+  --danger:       #EF4444;
+  --danger-soft:  rgba(239,68,68,0.14);
+  --info:         #22D3EE;
+  --info-soft:    rgba(34,211,238,0.14);
+
+  /* ---- Gradients (blue/cyan) ---- */
+  --grad-primary:      linear-gradient(180deg, #60A5FA 0%, #3B82F6 100%);
+  --grad-primary-soft: linear-gradient(135deg, rgba(59,130,246,0.22), rgba(34,211,238,0.14));
+  --grad-hero:         linear-gradient(135deg, rgba(59,130,246,0.20) 0%, rgba(34,211,238,0.10) 45%, rgba(10,12,20,0.55) 100%);
+  --grad-hero-alt:     linear-gradient(135deg, rgba(34,211,238,0.18) 0%, rgba(59,130,246,0.14) 55%, rgba(10,12,20,0.55) 100%);
+  --grad-text-brand:   linear-gradient(135deg, #A5F3FC 0%, #60A5FA 45%, #3B82F6 100%);
+
+  --grad-app-bg:
+    radial-gradient(1200px 700px at 15% -10%, rgba(59,130,246,0.16), transparent 60%),
+    radial-gradient(1000px 600px at 90% 0%,  rgba(34,211,238,0.12), transparent 55%),
+    radial-gradient(1400px 800px at 50% 120%, rgba(59,130,246,0.10), transparent 55%),
+    linear-gradient(180deg, #06070B 0%, #06070B 40%, #05060A 100%);
+
+  /* ---- Shadows / Glow ---- */
+  --shadow-panel:      0 8px 32px rgba(0,0,0,0.45);
+  --shadow-card:       0 1px 0 0 rgba(255,255,255,0.04) inset, 0 8px 32px -12px rgba(0,0,0,0.55);
+  --shadow-lift:       0 1px 0 0 rgba(255,255,255,0.05) inset, 0 24px 80px -20px rgba(0,0,0,0.75);
+  --shadow-hover:      0 1px 0 0 rgba(255,255,255,0.08) inset, 0 30px 80px -20px rgba(0,0,0,0.75), 0 0 40px rgba(59,130,246,0.18);
+  --shadow-hero:       0 40px 120px -30px rgba(59,130,246,0.28), 0 20px 60px -20px rgba(0,0,0,0.7);
+  --shadow-glow:       0 0 0 1px var(--accent-ring), 0 8px 40px -8px rgba(59,130,246,0.45);
+  --shadow-focus-ring: 0 0 0 4px rgba(59,130,246,0.28);
+
+  /* ---- Radii ---- */
+  --r-xs:   10px;
+  --r-sm:  12px;
+  --r-md:  16px;
+  --r-lg:  20px;
+  --r-xl:  24px;
+  --r-2xl: 28px;
+  --r-3xl: 32px;
+  --r-card: 22px;
+  --r-hero: 32px;
+  --r-pill: 999px;
+
+  /* ---- Spacing (8px grid) ---- */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-10: 64px;
+  --space-12: 80px;
+
+  /* ---- Component sizes ---- */
+  --h-btn:      42px;
+  --h-btn-sm:   32px;
+  --h-btn-lg:   52px;
+  --h-input:    44px;
+  --icon-sm:    16px;
+  --icon-md:    18px;
+  --icon-lg:    22px;
+  --card-pad:   28px;
+  --panel-pad:  44px;
+
+  /* ---- Motion (unified 180–220 ms) ---- */
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.2, 0.9, 0.25, 1.15);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur:      200ms;
+  --dur-slow: 320ms;
+
+  /* ---- Type (Space Grotesk + Inter — match website) ---- */
+  --font-display: "Space Grotesk", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --font-body:    "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+
+  --fs-xs:    11px;
+  --fs-sm:    12px;
+  --fs-body:  13.5px;
+  --fs-md:    14px;
+  --fs-lg:    15px;
+  --fs-xl:    18px;
+  --fs-2xl:   22px;
+  --fs-h3:    26px;
+  --fs-h2:    32px;
+  --fs-h1:    40px;
+  --fs-hero:  52px;
+}
+
+* { box-sizing: border-box; }
+*::before, *::after { box-sizing: inherit; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-base);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02","cv03","cv04","cv11","ss01";
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+input, textarea, [contenteditable="true"], .selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+button, input, select, textarea { font-family: inherit; color: inherit; }
+
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+.drag-region { -webkit-app-region: drag; }
+.no-drag     { -webkit-app-region: no-drag; }
+
+.mono, .tabular { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); }
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--font-display);
+  letter-spacing: -0.028em;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ============================================================
+   App shell — living background (radial + subtle vignette)
+   ============================================================ */
+.app-shell {
+  position: relative;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 288px 1fr;
+  overflow: hidden;
+  background: var(--grad-app-bg);
+  background-attachment: fixed;
+}
+.app-shell::before {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(600px 400px at 22% 82%, rgba(34,211,238,0.08), transparent 50%),
+    radial-gradient(700px 500px at 92% 92%, rgba(59,130,246,0.10), transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+.app-shell::after {
+  /* Very subtle grain across the whole app */
+  content: "";
+  position: absolute; inset: 0;
+  background-image: var(--glass-noise);
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 0;
+}
+.app-shell > aside,
+.app-shell > main { position: relative; z-index: 1; }
+.app-shell > main { overflow: hidden; }
+
+/* Canonical page-content wrapper — luft og hierarki. */
+.page-container {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 1240px;
+  padding: 48px 56px 88px;
+}
+
+/* Section rhythm — everything follows the same vertical beat */
+.section        { margin-top: var(--space-8); }
+.section:first-child { margin-top: 0; }
+.section-title  {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--ink-hi);
+  letter-spacing: -0.02em;
+}
+.section-lead   { color: var(--ink-low); font-size: var(--fs-body); margin-top: 6px; max-width: 520px; }
+.eyebrow {
+  display: inline-block;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #A5F3FC, #60A5FA);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ============================================================
+   Glass materials — multi-layer (sheen · edge · noise)
+   NOTE: never hand-write -webkit-backdrop-filter.
+   ============================================================ */
+.glass-panel,
+.glass-panel-strong,
+.glass-card,
+.hero-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* Top sheen (layer above content — subtle) */
+.glass-panel::before,
+.glass-panel-strong::before,
+.glass-card::before,
+.hero-panel::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: var(--glass-sheen);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.9;
+}
+/* Fine noise for material feel */
+.glass-panel::after,
+.glass-panel-strong::after,
+.glass-card::after,
+.hero-panel::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background-image: var(--glass-noise);
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 0;
+}
+.glass-panel > *,
+.glass-panel-strong > *,
+.glass-card > *,
+.hero-panel > * { position: relative; z-index: 1; }
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+}
+
+.glass-panel-strong {
+  background: var(--glass-bg-2);
+  backdrop-filter: blur(var(--blur-lg)) saturate(160%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-hero);
+  box-shadow: var(--shadow-lift);
+}
+
+.glass-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  transition:
+    transform var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out);
+}
+.glass-card.card-lift:hover {
+  transform: translateY(-3px);
+  border-color: var(--glass-border-hi);
+  box-shadow: var(--shadow-hover);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+}
+
+/* ============================================================
+   Hero — DOMINANT, cinematic
+   ============================================================ */
+.hero-panel {
+  background: var(--grad-hero);
+  backdrop-filter: blur(var(--blur-lg)) saturate(150%);
+  border: 1px solid var(--glass-border-hi);
+  border-radius: var(--r-hero);
+  padding: 56px 56px;
+  min-height: 340px;
+  box-shadow: var(--shadow-hero);
+}
+.hero-panel--alt { background: var(--grad-hero-alt); }
+.hero-panel__orb {
+  position: absolute;
+  right: -220px;
+  top: -220px;
+  height: 560px;
+  width: 560px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 40% 40%, rgba(59,130,246,0.55) 0%, rgba(34,211,238,0.20) 40%, transparent 70%);
+  filter: blur(24px);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero-panel__orb--soft {
+  right: auto;
+  left: -180px;
+  bottom: -220px;
+  top: auto;
+  background:
+    radial-gradient(circle at 60% 60%, rgba(34,211,238,0.35) 0%, transparent 65%);
+}
+.hero-title {
+  font-family: var(--font-display);
+  font-size: var(--fs-hero);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+  color: var(--ink-hi);
+}
+.hero-title .grad {
+  background: var(--grad-text-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero-lead {
+  margin-top: 16px;
+  max-width: 560px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink-low);
+}
+
+/* Score ring — hero KPI object */
+.score-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 200px;
+  width: 200px;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 210deg, rgba(59,130,246,0.65), rgba(34,211,238,0.55), rgba(59,130,246,0.25), rgba(59,130,246,0.65));
+  box-shadow: 0 0 80px rgba(59,130,246,0.35);
+}
+.score-ring__inner {
+  display: grid;
+  place-items: center;
+  height: 172px; width: 172px;
+  border-radius: 50%;
+  background: rgba(8,10,16,0.85);
+  border: 1px solid var(--glass-border-hi);
+  backdrop-filter: blur(20px);
+}
+
+/* ============================================================
+   Sidebar & TopBar
+   ============================================================ */
+.glass-sidebar {
+  background: var(--glass-sidebar);
+  backdrop-filter: blur(var(--blur-lg)) saturate(160%);
+  border-right: 1px solid var(--glass-border);
+  position: relative;
+}
+.glass-sidebar::after {
+  content: "";
+  position: absolute;
+  top: 0; right: -1px; bottom: 0;
+  width: 1px;
+  background: var(--glass-edge-grad);
+  pointer-events: none;
+}
+
+.glass-topbar {
+  background: var(--glass-topbar);
+  backdrop-filter: blur(var(--blur-md)) saturate(150%);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.glass-input {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--h-input);
+  padding: 0 var(--space-4);
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(var(--blur-sm));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-pill);
+  transition: border-color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+}
+.glass-input:focus-within {
+  border-color: var(--accent-ring);
+  box-shadow: var(--shadow-focus-ring);
+  background: rgba(255,255,255,0.05);
+}
+.glass-input > input {
+  background: transparent; border: 0; outline: 0;
+  color: var(--ink-hi); font-size: var(--fs-body);
+  flex: 1; min-width: 0;
+  letter-spacing: -0.005em;
+}
+.glass-input > input::placeholder { color: var(--ink-faint); }
+
+/* ============================================================
+   Buttons — objects with light, not flat rectangles
+   ============================================================ */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--h-btn);
+  padding: 0 20px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  border: 1px solid transparent;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    filter var(--dur) var(--ease-out);
+  white-space: nowrap;
+}
+.btn:active:not(:disabled) { transform: translateY(1px) scale(0.995); }
+.btn:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.btn-sm { height: var(--h-btn-sm); padding: 0 16px; font-size: var(--fs-sm); border-radius: 999px; }
+.btn-lg { height: var(--h-btn-lg); padding: 0 28px; font-size: 15px; border-radius: 999px; }
+
+.btn-primary {
+  color: var(--accent-ink);
+  background: var(--grad-primary);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    0 10px 30px -12px rgba(59,130,246,0.55);
+}
+/* Sheen on hover */
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: -60%;
+  width: 40%;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,0.32), transparent);
+  transform: skewX(-18deg);
+  transition: left 600ms var(--ease-out);
+  pointer-events: none;
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.32),
+    0 16px 44px -10px rgba(59,130,246,0.75);
+}
+.btn-primary:hover:not(:disabled)::before { left: 120%; }
+
+.btn-secondary {
+  color: var(--ink-hi);
+  background: rgba(255,255,255,0.04);
+  border-color: var(--glass-border);
+  border-radius: 999px;
+  backdrop-filter: blur(var(--blur-sm));
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,0.07);
+  border-color: var(--glass-border-hi);
+}
+
+.btn-ghost { color: var(--ink-mid); background: transparent; border-radius: 999px; }
+.btn-ghost:hover:not(:disabled) { color: var(--ink-hi); background: rgba(255,255,255,0.05); }
+
+.btn-icon,
+.btn.btn-icon {
+  width: var(--h-btn); height: var(--h-btn);
+  padding: 0; border-radius: 50%;
+}
+
+/* ============================================================
+   Chips / badges / status
+   ============================================================ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  color: var(--ink-mid);
+  backdrop-filter: blur(var(--blur-sm));
+  transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+.chip:hover { border-color: var(--glass-border-hi); }
+.chip-accent   { color: #93C5FD; background: var(--accent-soft);   border-color: rgba(59,130,246,0.30); }
+.chip-info     { color: #67E8F9; background: var(--info-soft);     border-color: rgba(34,211,238,0.30); }
+.chip-emerald  { color: #86EFAC; background: var(--success-soft);  border-color: rgba(34,197,94,0.30); }
+.chip-amber    { color: #FCD34D; background: var(--warning-soft);  border-color: rgba(245,158,11,0.30); }
+.chip-rose     { color: #FCA5A5; background: var(--danger-soft);   border-color: rgba(239,68,68,0.30); }
+.chip-pending  { color: var(--ink-low); background: rgba(255,255,255,0.025); border: 1px dashed var(--hairline-strong); }
+
+.status-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+.status-dot--ok      { background: var(--success); box-shadow: 0 0 10px var(--success); }
+.status-dot--warn    { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
+.status-dot--danger  { background: var(--danger);  box-shadow: 0 0 10px var(--danger); }
+.status-dot--info    { background: var(--info);    box-shadow: 0 0 10px var(--info); }
+
+/* ============================================================
+   Pending / value placeholder
+   ============================================================ */
+.value-pending {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 40px;
+  line-height: 1;
+  color: var(--ink-faint);
+  letter-spacing: -0.02em;
+}
+.pending-label {
+  font-size: var(--fs-xs);
+  color: var(--ink-low);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ============================================================
+   Empty state — proper "kommer snart" surface, ikke bare tomt
+   ============================================================ */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 64px 32px;
+  gap: 14px;
+}
+.empty-state__icon {
+  display: grid;
+  place-items: center;
+  height: 72px; width: 72px;
+  border-radius: 24px;
+  background: var(--grad-primary-soft);
+  border: 1px solid rgba(59,130,246,0.28);
+  box-shadow: 0 12px 32px -12px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.10);
+  margin-bottom: 4px;
+}
+.empty-state__title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink-hi);
+  letter-spacing: -0.02em;
+}
+.empty-state__text {
+  font-size: var(--fs-body);
+  color: var(--ink-low);
+  max-width: 460px;
+  line-height: 1.6;
+}
+
+/* ============================================================
+   Progress + skeleton
+   ============================================================ */
+.progress {
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+.progress__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--grad-primary);
+  box-shadow: 0 0 12px rgba(59,130,246,0.5);
+  transition: width var(--dur-slow) var(--ease-out);
+}
+
+.skeleton {
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.09) 50%,
+    rgba(255,255,255,0.04) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s linear infinite;
+}
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================================
+   Switch, Tabs, Tooltip
+   ============================================================ */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px; height: 26px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--glass-border);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+}
+.switch__thumb {
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  transition: transform var(--dur) var(--ease-spring);
+}
+.switch--on {
+  background: var(--grad-primary);
+  border-color: rgba(59,130,246,0.4);
+  box-shadow: 0 0 16px rgba(59,130,246,0.35);
+}
+.switch--on .switch__thumb { transform: translateX(18px); }
+.switch--disabled { opacity: 0.5; cursor: not-allowed; }
+
+.tabs {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--blur-sm));
+}
+.tab {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--ink-mid);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease-out), background var(--dur) var(--ease-out);
+}
+.tab:hover { color: var(--ink-hi); }
+.tab--active {
+  color: #fff;
+  background: var(--grad-primary);
+  box-shadow: 0 6px 16px rgba(59,130,246,0.35);
+}
+
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%; bottom: calc(100% + 8px);
+  transform: translate(-50%, 4px);
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(10,12,20,0.92);
+  border: 1px solid var(--glass-border-hi);
+  color: var(--ink-hi);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+  z-index: 40;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(var(--blur-sm));
+}
+[data-tooltip]:hover::after { opacity: 1; transform: translate(-50%, 0); }
+
+/* ============================================================
+   Divider — subtle luxury hairline
+   ============================================================ */
+.hair {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hairline-strong), transparent);
+}
+
+/* ============================================================
+   Nav — CSS-only hover (no JS style writes)
+   ============================================================ */
+.nav-item {
+  border: 1px solid transparent;
+  background: transparent;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+.nav-item:not(.nav-item--active):hover {
+  background: rgba(59,130,246,0.06);
+  border-color: rgba(59,130,246,0.14);
+}
+.nav-item--active {
+  background: linear-gradient(135deg, rgba(59,130,246,0.24), rgba(34,211,238,0.10) 60%, rgba(34,211,238,0.04));
+  border-color: rgba(59,130,246,0.32);
+  box-shadow:
+    0 10px 30px rgba(59,130,246,0.30),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.nav-active-bar {
+  position: absolute;
+  left: -3px; top: 50%;
+  height: 22px; width: 3px;
+  border-radius: 3px;
+  transform: translateY(-50%);
+  background: var(--grad-primary);
+  box-shadow: 0 0 12px rgba(59,130,246,0.7);
+}
+
+/* ============================================================
+   Scrollbars — discreet accent on hover
+   ============================================================ */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background var(--dur) var(--ease-out);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(59,130,246,0.4);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.10) transparent; }
+::selection { background: rgba(59,130,246,0.35); color: #fff; }
+
+/* ============================================================
+   Motion — consistent, 180–320ms
+   ============================================================ */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 380ms var(--ease-out) both; }
+.fade-up > * { animation: fade-up 420ms var(--ease-out) both; }
+.fade-up > *:nth-child(2) { animation-delay: 60ms; }
+.fade-up > *:nth-child(3) { animation-delay: 120ms; }
+.fade-up > *:nth-child(4) { animation-delay: 180ms; }
+.fade-up > *:nth-child(5) { animation-delay: 240ms; }
+.fade-up > *:nth-child(6) { animation-delay: 300ms; }
+
+@keyframes page-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-fade { animation: page-fade 260ms var(--ease-out) both; }
+
+@keyframes pulse-glow {
+  0%,100% { opacity: 0.7; }
+  50%     { opacity: 1; }
+}
+.pulse-dot { animation: pulse-glow 2s ease-in-out infinite; }
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.float-slow { animation: float-slow 9s ease-in-out infinite; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* ============================================================
+   v0.12 — MATERIAL DESIGN LAYER
+   9-lags glas: gradient · blur · toning · noise · top-refleks ·
+   indre highlight · ydre skygge · lys kant · ambient glow.
+   Bento/magasin-layout. Cinematisk hero med lyslinje.
+   ============================================================ */
+
+/* ---- Ambient light spots (skjulte lyskilder) ------------- */
+.ambient-light {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.75;
+  z-index: 0;
+}
+.ambient-light--blue   { background: radial-gradient(circle, rgba(59,130,246,0.35), transparent 65%); }
+.ambient-light--cyan   { background: radial-gradient(circle, rgba(34,211,238,0.28), transparent 65%); }
+.ambient-light--soft   { background: radial-gradient(circle, rgba(255,255,255,0.06), transparent 65%); }
+
+/* ---- Material Panel — 9 lag i én komponent --------------- */
+.material-panel {
+  position: relative;
+  isolation: isolate;
+  border-radius: var(--r-hero);
+  /* 1) Baggrundsgradient (blå-cyan-mørk) */
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.02) 55%, rgba(255,255,255,0.01) 100%),
+    linear-gradient(135deg, rgba(59,130,246,0.10), rgba(34,211,238,0.05) 55%, transparent 100%),
+    rgba(10,12,20,0.55);
+  /* 2) Backdrop blur + saturation */
+  backdrop-filter: blur(var(--blur-lg)) saturate(160%);
+  /* 3) Ydre skygge + 6) indre highlight (lys kant) */
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    inset 0 0 0 1px rgba(255,255,255,0.03),
+    0 30px 80px -30px rgba(0,0,0,0.75),
+    0 8px 24px -12px rgba(0,0,0,0.5);
+  /* 4) Gradient border via mask (top lysere end bund) */
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  overflow: hidden;
+}
+.material-panel::before {
+  /* Lag 5 — top-refleks (diskret lyslinje langs toppen) */
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0) 12%),
+    radial-gradient(120% 50% at 50% 0%, rgba(255,255,255,0.06), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+.material-panel::after {
+  /* Lag 4 — noise + Lag 7-ish hjørne-vignette */
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background-image:
+    var(--glass-noise),
+    radial-gradient(140% 100% at 50% 120%, rgba(0,0,0,0.35), transparent 55%);
+  background-blend-mode: overlay, normal;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 0;
+}
+.material-panel > * { position: relative; z-index: 1; }
+
+/* Lys kant øverst — meget diskret hairline */
+.material-panel .top-lightline {
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ---- Override af hero-panel for cinematisk følelse ------- */
+.hero-panel {
+  padding: 72px 64px;
+  min-height: 420px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0) 55%),
+    linear-gradient(135deg, rgba(59,130,246,0.18), rgba(34,211,238,0.08) 45%, transparent 80%),
+    rgba(9,11,18,0.62);
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    inset 0 0 40px rgba(0,0,0,0.35),
+    0 40px 120px -30px rgba(59,130,246,0.28),
+    0 20px 60px -20px rgba(0,0,0,0.7);
+}
+/* Diskret top-lyslinje på heroen */
+.hero-panel .hero-lightline {
+  position: absolute;
+  top: 0; left: 12%; right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.30), transparent);
+  z-index: 2;
+  pointer-events: none;
+}
+/* Corner vignettes for depth */
+.hero-panel .hero-vignette {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(400px 300px at 0% 100%, rgba(0,0,0,0.35), transparent 60%),
+    radial-gradient(400px 300px at 100% 100%, rgba(0,0,0,0.35), transparent 60%);
+  z-index: 0;
+}
+
+/* ---- Kort-varianter (bento/magasin) --------------------- */
+.card-quiet {
+  background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-card);
+  backdrop-filter: blur(var(--blur-sm));
+}
+.card-tall  { min-height: 340px; }
+.card-wide  { min-height: 200px; }
+.card-hero-mini {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02) 55%),
+    linear-gradient(135deg, rgba(59,130,246,0.20), rgba(34,211,238,0.10) 55%, transparent);
+  border: 1px solid rgba(59,130,246,0.24);
+  border-radius: var(--r-card);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    0 20px 50px -20px rgba(59,130,246,0.35);
+}
+
+/* ---- Premium button — sheen + kompression ---------------- */
+.btn-primary:active:not(:disabled) { transform: translateY(1px) scale(0.985); }
+
+/* ---- Feature illustration ring (til empty states) -------- */
+.illus-ring {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 120px; width: 120px;
+  border-radius: 50%;
+  background:
+    conic-gradient(from 210deg, rgba(59,130,246,0.55), rgba(34,211,238,0.45), rgba(59,130,246,0.20), rgba(59,130,246,0.55));
+  box-shadow: 0 0 50px rgba(59,130,246,0.30);
+}
+.illus-ring::before {
+  content: "";
+  position: absolute; inset: 4px;
+  border-radius: inherit;
+  background: rgba(8,10,16,0.90);
+  border: 1px solid var(--glass-border-hi);
+}
+.illus-ring > * { position: relative; z-index: 1; }
+
+/* ---- Section header rytme -------------------------------- */
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 28px;
+}
+
+/* ---- Fokusindikator opgraderet --------------------------- */
+:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--bg-base),
+    0 0 0 4px var(--accent-ring);
+  border-radius: 12px;
+}
+
+/* ============================================================
+   v0.13 — ART DIRECTION LAYER
+   Per-side "scener", differentierede materialer, lagvis lys,
+   asymmetriske layouts, fysisk motion. Ikke et dashboard —
+   en oplevelse.
+   ============================================================ */
+
+/* ---- Type identitet ------------------------------------- */
+.display-xl {
+  font-family: var(--font-display);
+  font-size: 72px;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+  color: var(--ink-hi);
+}
+.display-lg {
+  font-family: var(--font-display);
+  font-size: 56px;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  color: var(--ink-hi);
+}
+.display-md {
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1.08;
+  letter-spacing: -0.032em;
+  font-weight: 600;
+  color: var(--ink-hi);
+}
+.kicker {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-family: var(--font-display);
+}
+.big-num {
+  font-family: var(--font-display);
+  font-size: 88px;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  font-weight: 300;
+  color: var(--ink-hi);
+  font-variant-numeric: tabular-nums;
+}
+.grad-text {
+  background: var(--grad-text-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- Stage — per-page cinematisk baggrund ---------------- */
+.stage {
+  position: relative;
+  isolation: isolate;
+}
+.stage::before,
+.stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+/* Layer 2 — store slørede lyskilder (default: dashboard) */
+.stage::before {
+  background:
+    radial-gradient(900px 600px at 12% -10%, rgba(59,130,246,0.22), transparent 60%),
+    radial-gradient(800px 500px at 92% 6%,  rgba(34,211,238,0.16), transparent 60%),
+    radial-gradient(1200px 700px at 50% 110%, rgba(59,130,246,0.10), transparent 55%);
+  opacity: 0.9;
+}
+/* Layer 3 — meget svag støjtekstur på tværs af scenen */
+.stage::after {
+  background-image: var(--glass-noise);
+  opacity: 0.028;
+  mix-blend-mode: overlay;
+}
+.stage > * { position: relative; z-index: 1; }
+
+/* Per-page scene karakter (ambient farvetemperatur) */
+[data-page="dashboard"] .stage::before {
+  background:
+    radial-gradient(900px 620px at 8% -12%, rgba(59,130,246,0.26), transparent 60%),
+    radial-gradient(760px 520px at 96% -6%, rgba(34,211,238,0.18), transparent 60%),
+    radial-gradient(1300px 760px at 50% 115%, rgba(59,130,246,0.11), transparent 55%);
+}
+[data-page="games"] .stage::before {
+  background:
+    radial-gradient(1100px 700px at 100% -8%, rgba(34,211,238,0.24), transparent 55%),
+    radial-gradient(900px 600px at 0% 40%, rgba(59,130,246,0.20), transparent 55%),
+    radial-gradient(1400px 800px at 50% 120%, rgba(34,211,238,0.08), transparent 55%);
+}
+[data-page="scan"] .stage::before {
+  background:
+    radial-gradient(700px 540px at 50% -8%, rgba(59,130,246,0.22), transparent 60%),
+    radial-gradient(1200px 700px at 50% 100%, rgba(34,211,238,0.12), transparent 55%);
+}
+[data-page="repairs"] .stage::before {
+  background:
+    radial-gradient(1000px 640px at 20% 0%, rgba(59,130,246,0.14), transparent 60%),
+    radial-gradient(900px 600px at 90% 20%, rgba(148,163,184,0.06), transparent 55%),
+    radial-gradient(1200px 800px at 50% 120%, rgba(59,130,246,0.08), transparent 55%);
+}
+[data-page="settings"] .stage::before {
+  background:
+    radial-gradient(700px 500px at 5% -10%, rgba(59,130,246,0.14), transparent 60%),
+    radial-gradient(600px 400px at 100% 100%, rgba(34,211,238,0.08), transparent 55%);
+}
+
+/* ---- Skjulte lyskilder (kan drysses på ethvert element) -- */
+.spot {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.55;
+  z-index: 0;
+}
+.spot--blue { background: radial-gradient(circle, rgba(59,130,246,0.55), transparent 65%); }
+.spot--cyan { background: radial-gradient(circle, rgba(34,211,238,0.45), transparent 65%); }
+.spot--white { background: radial-gradient(circle, rgba(255,255,255,0.10), transparent 65%); opacity: 0.4; }
+
+/* Svage lyslinjer (Layer 4) */
+.lightline {
+  position: absolute;
+  height: 1px;
+  left: 8%; right: 8%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+.lightline--bottom { bottom: 0; }
+.lightline--top    { top: 0; }
+
+/* Diskret linjegrid (næsten usynlig) */
+.faint-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ---- Materiale-varianter --------------------------------- */
+/* Frosted glass — bløde overflader (dialoger, kort) */
+.mat-frosted {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02) 60%),
+    rgba(12,14,22,0.55);
+  backdrop-filter: blur(var(--blur-lg)) saturate(160%);
+  border: 1px solid rgba(255,255,255,0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.11),
+    0 20px 60px -20px rgba(0,0,0,0.65),
+    0 6px 20px -10px rgba(0,0,0,0.45);
+  border-radius: var(--r-card);
+}
+/* Satin — sidebar, rolige lange flader */
+.mat-satin {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.038), rgba(255,255,255,0.012) 55%),
+    linear-gradient(135deg, rgba(59,130,246,0.05), transparent 60%),
+    rgba(8,10,16,0.72);
+  backdrop-filter: blur(var(--blur-md)) saturate(150%);
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 -1px 0 rgba(0,0,0,0.4);
+}
+/* Matte — sekundære overflader (settings-rail, inner surfaces) */
+.mat-matte {
+  background: rgba(10,12,18,0.72);
+  border: 1px solid rgba(255,255,255,0.055);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  border-radius: var(--r-card);
+}
+/* Acrylic — halvgennemsigtig, mere farvet (topbar, chips) */
+.mat-acrylic {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)),
+    rgba(10,12,20,0.42);
+  backdrop-filter: blur(var(--blur-md)) saturate(150%);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+/* Tinted glass — accent-farvet materiale (spotlight-elementer) */
+.mat-tinted {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02) 55%),
+    linear-gradient(135deg, rgba(59,130,246,0.18), rgba(34,211,238,0.08) 60%, transparent 100%);
+  backdrop-filter: blur(var(--blur-lg)) saturate(160%);
+  border: 1px solid rgba(59,130,246,0.24);
+  border-radius: var(--r-card);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    0 24px 60px -24px rgba(59,130,246,0.4);
+}
+
+/* ---- Skygge-tiers (bruges sammen med materialer) ---------- */
+.sh-ambient    { box-shadow: 0 40px 100px -40px rgba(0,0,0,0.7); }
+.sh-contact    { box-shadow: 0 2px 6px rgba(0,0,0,0.35), 0 12px 30px -18px rgba(0,0,0,0.55); }
+.sh-directional{ box-shadow: 0 30px 60px -30px rgba(59,130,246,0.4), 0 10px 30px -15px rgba(0,0,0,0.5); }
+.sh-soft       { box-shadow: 0 8px 24px -12px rgba(0,0,0,0.5); }
+
+/* ---- Reactive panel — sheen der følger musen -------------- */
+.reactive {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
+}
+.reactive::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    360px circle at var(--mx, 50%) var(--my, 0%),
+    rgba(255,255,255,0.10),
+    transparent 55%
+  );
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease-out);
+  pointer-events: none;
+  z-index: 2;
+}
+.reactive:hover::before { opacity: 1; }
+.reactive:hover {
+  transform: translateY(-2px);
+  border-color: var(--glass-border-hi);
+  box-shadow: var(--shadow-hover);
+}
+
+/* ---- Games — store cover-tiles --------------------------- */
+.cover-tile {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(10,12,20,0.6);
+  transition:
+    transform 380ms var(--ease-spring),
+    box-shadow var(--dur-slow) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
+  cursor: default;
+}
+.cover-tile:hover {
+  transform: translateY(-6px) scale(1.015);
+  border-color: rgba(59,130,246,0.35);
+  box-shadow:
+    0 40px 80px -30px rgba(0,0,0,0.7),
+    0 0 60px -10px rgba(59,130,246,0.35);
+}
+.cover-tile__art {
+  position: absolute; inset: 0;
+  z-index: 0;
+}
+.cover-tile__scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(6,7,11,0.85) 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+.cover-tile__sheen {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), transparent 30%);
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.cover-tile__meta {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 20px 22px;
+  z-index: 3;
+}
+.cover-tile--featured { aspect-ratio: 16 / 9; }
+
+/* ---- Repair — rolige, brede rækker ----------------------- */
+.calm-row {
+  display: grid;
+  grid-template-columns: 68px 1fr auto;
+  align-items: center;
+  gap: 24px;
+  padding: 22px 24px;
+  border-radius: var(--r-card);
+  background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.010));
+  border: 1px solid rgba(255,255,255,0.06);
+  transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+}
+.calm-row:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.018));
+  border-color: rgba(255,255,255,0.10);
+  transform: translateY(-1px);
+}
+.calm-row__icon {
+  width: 56px; height: 56px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+/* ---- Settings — macOS-lignende to-panel ------------------ */
+.settings-rail {
+  min-width: 240px;
+  padding: 20px 16px;
+  border-radius: var(--r-card);
+}
+.settings-rail__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--ink-mid);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+}
+.settings-rail__item:hover { background: rgba(255,255,255,0.04); color: var(--ink-hi); }
+.settings-rail__item--active {
+  background: linear-gradient(135deg, rgba(59,130,246,0.20), rgba(34,211,238,0.06));
+  color: #fff;
+  border-color: rgba(59,130,246,0.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.settings-rail__icon {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--ink-hi);
+}
+.settings-group {
+  padding: 8px 8px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* ---- Scan/Hardware — eksklusive spec-rækker -------------- */
+.spec-row {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 28px;
+  padding: 24px 28px;
+  border-radius: var(--r-card);
+  background: linear-gradient(180deg, rgba(255,255,255,0.032), rgba(255,255,255,0.010));
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.spec-row + .spec-row { margin-top: 10px; }
+.spec-row__glyph {
+  width: 64px; height: 64px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+    linear-gradient(135deg, rgba(59,130,246,0.18), transparent 60%);
+  border: 1px solid rgba(59,130,246,0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.14),
+    0 12px 28px -14px rgba(59,130,246,0.35);
+  color: #fff;
+}
+
+/* ---- Dashboard hero — orb i center som "artefakt" -------- */
+.hero-orb {
+  position: relative;
+  height: 260px; width: 260px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 30%, rgba(255,255,255,0.35), transparent 40%),
+    radial-gradient(circle at 60% 65%, rgba(34,211,238,0.55), transparent 55%),
+    radial-gradient(circle at 50% 50%, rgba(59,130,246,0.90) 0%, rgba(30,58,138,0.9) 55%, rgba(6,7,11,1) 90%);
+  box-shadow:
+    0 0 120px rgba(59,130,246,0.45),
+    inset 0 -20px 60px rgba(0,0,0,0.5),
+    inset 0 20px 60px rgba(255,255,255,0.12);
+}
+.hero-orb::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59,130,246,0.25), transparent 60%);
+  filter: blur(30px);
+  z-index: -1;
+}
+
+/* ---- Fysisk motion — panel-entry & liste-stagger --------- */
+@keyframes settle {
+  0%   { opacity: 0; transform: translateY(18px) scale(0.985); }
+  60%  { opacity: 1; transform: translateY(-2px) scale(1.003); }
+  100% { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.settle { animation: settle 560ms var(--ease-spring) both; }
+.settle-list > * { animation: settle 520ms var(--ease-spring) both; }
+.settle-list > *:nth-child(1) { animation-delay: 40ms; }
+.settle-list > *:nth-child(2) { animation-delay: 100ms; }
+.settle-list > *:nth-child(3) { animation-delay: 160ms; }
+.settle-list > *:nth-child(4) { animation-delay: 220ms; }
+.settle-list > *:nth-child(5) { animation-delay: 280ms; }
+.settle-list > *:nth-child(6) { animation-delay: 340ms; }
+.settle-list > *:nth-child(7) { animation-delay: 400ms; }
+.settle-list > *:nth-child(8) { animation-delay: 460ms; }
+
+/* ---- Nav aktiv-glød — følger formen ---------------------- */
+.nav-item--active {
+  position: relative;
+  overflow: hidden;
+}
+.nav-item--active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(160% 80% at 0% 50%, rgba(59,130,246,0.25), transparent 55%);
+  pointer-events: none;
+}
+
+

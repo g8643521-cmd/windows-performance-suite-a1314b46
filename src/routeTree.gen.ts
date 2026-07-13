@@ -9,38 +9,215 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OmRouteImport } from './routes/om'
+import { Route as KontaktRouteImport } from './routes/kontakt'
+import { Route as FunktionerRouteImport } from './routes/funktioner'
+import { Route as FaqRouteImport } from './routes/faq'
+import { Route as DownloadRouteImport } from './routes/download'
+import { Route as ChangelogRouteImport } from './routes/changelog'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicUpdateDotps1RouteImport } from './routes/api/public/update[.]ps1'
+import { Route as ApiPublicUninstallDotps1RouteImport } from './routes/api/public/uninstall[.]ps1'
+import { Route as ApiPublicLatestVersionRouteImport } from './routes/api/public/latest-version'
+import { Route as ApiPublicInstallDotps1RouteImport } from './routes/api/public/install[.]ps1'
 
+const OmRoute = OmRouteImport.update({
+  id: '/om',
+  path: '/om',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontaktRoute = KontaktRouteImport.update({
+  id: '/kontakt',
+  path: '/kontakt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FunktionerRoute = FunktionerRouteImport.update({
+  id: '/funktioner',
+  path: '/funktioner',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaqRoute = FaqRouteImport.update({
+  id: '/faq',
+  path: '/faq',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangelogRoute = ChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicUpdateDotps1Route = ApiPublicUpdateDotps1RouteImport.update({
+  id: '/api/public/update.ps1',
+  path: '/api/public/update.ps1',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicUninstallDotps1Route =
+  ApiPublicUninstallDotps1RouteImport.update({
+    id: '/api/public/uninstall.ps1',
+    path: '/api/public/uninstall.ps1',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicLatestVersionRoute = ApiPublicLatestVersionRouteImport.update({
+  id: '/api/public/latest-version',
+  path: '/api/public/latest-version',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicInstallDotps1Route = ApiPublicInstallDotps1RouteImport.update({
+  id: '/api/public/install.ps1',
+  path: '/api/public/install.ps1',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
+  '/download': typeof DownloadRoute
+  '/faq': typeof FaqRoute
+  '/funktioner': typeof FunktionerRoute
+  '/kontakt': typeof KontaktRoute
+  '/om': typeof OmRoute
+  '/api/public/install.ps1': typeof ApiPublicInstallDotps1Route
+  '/api/public/latest-version': typeof ApiPublicLatestVersionRoute
+  '/api/public/uninstall.ps1': typeof ApiPublicUninstallDotps1Route
+  '/api/public/update.ps1': typeof ApiPublicUpdateDotps1Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
+  '/download': typeof DownloadRoute
+  '/faq': typeof FaqRoute
+  '/funktioner': typeof FunktionerRoute
+  '/kontakt': typeof KontaktRoute
+  '/om': typeof OmRoute
+  '/api/public/install.ps1': typeof ApiPublicInstallDotps1Route
+  '/api/public/latest-version': typeof ApiPublicLatestVersionRoute
+  '/api/public/uninstall.ps1': typeof ApiPublicUninstallDotps1Route
+  '/api/public/update.ps1': typeof ApiPublicUpdateDotps1Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/changelog': typeof ChangelogRoute
+  '/download': typeof DownloadRoute
+  '/faq': typeof FaqRoute
+  '/funktioner': typeof FunktionerRoute
+  '/kontakt': typeof KontaktRoute
+  '/om': typeof OmRoute
+  '/api/public/install.ps1': typeof ApiPublicInstallDotps1Route
+  '/api/public/latest-version': typeof ApiPublicLatestVersionRoute
+  '/api/public/uninstall.ps1': typeof ApiPublicUninstallDotps1Route
+  '/api/public/update.ps1': typeof ApiPublicUpdateDotps1Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/changelog'
+    | '/download'
+    | '/faq'
+    | '/funktioner'
+    | '/kontakt'
+    | '/om'
+    | '/api/public/install.ps1'
+    | '/api/public/latest-version'
+    | '/api/public/uninstall.ps1'
+    | '/api/public/update.ps1'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/changelog'
+    | '/download'
+    | '/faq'
+    | '/funktioner'
+    | '/kontakt'
+    | '/om'
+    | '/api/public/install.ps1'
+    | '/api/public/latest-version'
+    | '/api/public/uninstall.ps1'
+    | '/api/public/update.ps1'
+  id:
+    | '__root__'
+    | '/'
+    | '/changelog'
+    | '/download'
+    | '/faq'
+    | '/funktioner'
+    | '/kontakt'
+    | '/om'
+    | '/api/public/install.ps1'
+    | '/api/public/latest-version'
+    | '/api/public/uninstall.ps1'
+    | '/api/public/update.ps1'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ChangelogRoute: typeof ChangelogRoute
+  DownloadRoute: typeof DownloadRoute
+  FaqRoute: typeof FaqRoute
+  FunktionerRoute: typeof FunktionerRoute
+  KontaktRoute: typeof KontaktRoute
+  OmRoute: typeof OmRoute
+  ApiPublicInstallDotps1Route: typeof ApiPublicInstallDotps1Route
+  ApiPublicLatestVersionRoute: typeof ApiPublicLatestVersionRoute
+  ApiPublicUninstallDotps1Route: typeof ApiPublicUninstallDotps1Route
+  ApiPublicUpdateDotps1Route: typeof ApiPublicUpdateDotps1Route
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/om': {
+      id: '/om'
+      path: '/om'
+      fullPath: '/om'
+      preLoaderRoute: typeof OmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kontakt': {
+      id: '/kontakt'
+      path: '/kontakt'
+      fullPath: '/kontakt'
+      preLoaderRoute: typeof KontaktRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/funktioner': {
+      id: '/funktioner'
+      path: '/funktioner'
+      fullPath: '/funktioner'
+      preLoaderRoute: typeof FunktionerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/faq': {
+      id: '/faq'
+      path: '/faq'
+      fullPath: '/faq'
+      preLoaderRoute: typeof FaqRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/changelog': {
+      id: '/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof ChangelogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +225,50 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/update.ps1': {
+      id: '/api/public/update.ps1'
+      path: '/api/public/update.ps1'
+      fullPath: '/api/public/update.ps1'
+      preLoaderRoute: typeof ApiPublicUpdateDotps1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/uninstall.ps1': {
+      id: '/api/public/uninstall.ps1'
+      path: '/api/public/uninstall.ps1'
+      fullPath: '/api/public/uninstall.ps1'
+      preLoaderRoute: typeof ApiPublicUninstallDotps1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/latest-version': {
+      id: '/api/public/latest-version'
+      path: '/api/public/latest-version'
+      fullPath: '/api/public/latest-version'
+      preLoaderRoute: typeof ApiPublicLatestVersionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/install.ps1': {
+      id: '/api/public/install.ps1'
+      path: '/api/public/install.ps1'
+      fullPath: '/api/public/install.ps1'
+      preLoaderRoute: typeof ApiPublicInstallDotps1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ChangelogRoute: ChangelogRoute,
+  DownloadRoute: DownloadRoute,
+  FaqRoute: FaqRoute,
+  FunktionerRoute: FunktionerRoute,
+  KontaktRoute: KontaktRoute,
+  OmRoute: OmRoute,
+  ApiPublicInstallDotps1Route: ApiPublicInstallDotps1Route,
+  ApiPublicLatestVersionRoute: ApiPublicLatestVersionRoute,
+  ApiPublicUninstallDotps1Route: ApiPublicUninstallDotps1Route,
+  ApiPublicUpdateDotps1Route: ApiPublicUpdateDotps1Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
