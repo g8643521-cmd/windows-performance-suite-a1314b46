@@ -30,7 +30,7 @@ type Route =
 
 const META: Record<Route, { title: string; subtitle: string }> = {
   boost:     { title: "Boost",     subtitle: "Live ydelse · frigør hukommelse · ryd op" },
-  scan:      { title: "Scan",      subtitle: "Systemtjek · advarsler · anbefalinger" },
+  scan:      { title: "Scan",      subtitle: "Intelligent system scan · rens · Fix pr. kategori" },
   specs:     { title: "Specs",     subtitle: "Fuld hardware-oversigt · sensorer · lagring" },
   tweaks:    { title: "Tweaks",    subtitle: "Windows-optimering · game mode · strøm" },
   arcade:    { title: "Arcade",    subtitle: "Dit spilbibliotek · Steam og Epic" },
