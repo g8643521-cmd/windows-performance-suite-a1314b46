@@ -3,7 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { BoostPage } from "./pages/Boost";
 import { SystemScanPage } from "./pages/SystemScan";
-import { ScanPage as SpecsPage } from "./pages/Scan";
+import { HardwareCenterPage as SpecsPage } from "./pages/HardwareCenter";
 import { TweaksPage } from "./pages/Tweaks";
 import { GameBoostPage as ArcadePage } from "./pages/GameBoost";
 import { BenchmarkPage } from "./pages/Benchmark";
