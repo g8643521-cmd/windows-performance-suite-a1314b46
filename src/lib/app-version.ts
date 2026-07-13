@@ -36,11 +36,68 @@ export const APP_VERSION = {
 export const SOURCE_AHEAD_OF_BUILD = SOURCE_VERSION !== APP_VERSION.latest;
 
 
-// HEAD-check for om filen findes. Vite dev serverer index.html som fallback,
-// så vi filtrerer text/html fra så knappen ikke fejlagtigt vises som "aktiv".
-export async function checkDownloadAvailable(): Promise<boolean> {
+// -----------------------------------------------------------------------------
+// Dual-download: Installer (NSIS .exe) + Portable (ZIP)
+// -----------------------------------------------------------------------------
+// Begge artefakter kommer fra SAMME kildekode og SAMME version.
+// Portable ZIP er allerede uploadet. Setup.exe kræver en Windows-build via
+// GitHub Actions (.github/workflows/build-windows.yml) og markeres som
+// "available: false" indtil den reelt er uploadet til CDN.
+//
+// Når en ny Setup.exe er bygget og uploadet:
+//   1) Sæt DOWNLOADS.installer.available = true
+//   2) Udfyld path, sha256 og fileSize (og evt. fileSizeBytes)
+
+export type DownloadKind = "installer" | "portable";
+
+export type DownloadArtifact = {
+  kind: DownloadKind;
+  label: string;
+  description: string;
+  available: boolean;
+  filename: string;
+  path: string | null;
+  sha256: string | null;
+  fileSize: string | null;
+  fileSizeBytes: number | null;
+};
+
+export const DOWNLOADS: Record<DownloadKind, DownloadArtifact> = {
+  installer: {
+    kind: "installer",
+    label: "Windows Installer",
+    description:
+      "Installationsguide med valgfri mappe, Start-menu og skrivebordsgenvej. Kan afinstalleres via Windows.",
+    // Sæt til true når NOVYX-Setup-<version>.exe er uploadet til CDN.
+    available: false,
+    filename: `NOVYX-Setup-${APP_VERSION.latest}.exe`,
+    path: null,
+    sha256: null,
+    fileSize: null,
+    fileSizeBytes: null,
+  },
+  portable: {
+    kind: "portable",
+    label: "Portable ZIP",
+    description:
+      "Ingen installation. Udpak og kør NOVYX.exe direkte — efterlader ingen spor på systemet.",
+    available: true,
+    filename: APP_VERSION.filename,
+    path: DOWNLOAD_PATH,
+    sha256: APP_VERSION.sha256,
+    fileSize: APP_VERSION.fileSize,
+    fileSizeBytes: APP_VERSION.fileSizeBytes,
+  },
+};
+
+
+// HEAD-check for om en given artefakt findes. Vite dev serverer index.html som
+// fallback, så vi filtrerer text/html fra så knappen ikke fejlagtigt vises som
+// "aktiv".
+export async function checkArtifactAvailable(artifact: DownloadArtifact): Promise<boolean> {
+  if (!artifact.available || !artifact.path) return false;
   try {
-    const res = await fetch(DOWNLOAD_PATH, { method: "HEAD" });
+    const res = await fetch(artifact.path, { method: "HEAD" });
     if (!res.ok) return false;
     const type = res.headers.get("content-type") ?? "";
     if (type.includes("text/html")) return false;
@@ -48,6 +105,11 @@ export async function checkDownloadAvailable(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// Bagudkompatibel wrapper — bruges stadig af eksisterende komponenter.
+export async function checkDownloadAvailable(): Promise<boolean> {
+  return checkArtifactAvailable(DOWNLOADS.portable);
 }
 
 export type ReleaseType = "feature" | "fix" | "optimization" | "initial" | "security" | "performance";
