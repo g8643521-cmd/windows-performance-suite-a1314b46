@@ -56,4 +56,17 @@ contextBridge.exposeInMainWorld("novyx", {
     full: () => invoke("scan:full"),
     fix: (fixId) => invoke("scan:fix", fixId),
   },
+
+  repair2: {
+    list: () => invoke("repair2:list"),
+    elevated: () => invoke("repair2:elevated"),
+    run: (payload) => invoke("repair2:run", payload),
+    cancel: (jobId) => invoke("repair2:cancel", jobId),
+    onEvent: (cb) => {
+      const handler = (_e, evt) => { try { cb(evt); } catch {} };
+      ipcRenderer.on("repair2:event", handler);
+      return () => ipcRenderer.removeListener("repair2:event", handler);
+    },
+  },
 });
+
