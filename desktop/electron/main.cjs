@@ -1882,9 +1882,410 @@ ipcMain.handle("boost2:gameProfiles", async () => {
   catch { return { ok: true, data: {} }; }
 });
 
+// ─────────────────────────────────────────────────────────────
+// M5 · Hardware Center — komplet Windows-scan via CIM/PowerShell
+// Ingen mock. Hvert felt er null hvis Windows ikke leverer det.
+// ─────────────────────────────────────────────────────────────
+const HARDWARE_PS = String.raw`
+$ErrorActionPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
+
+$cpu = Get-CimInstance Win32_Processor | Select-Object Name,Manufacturer,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed,CurrentClockSpeed,L2CacheSize,L3CacheSize,SocketDesignation,ProcessorId,LoadPercentage,VirtualizationFirmwareEnabled,SecondLevelAddressTranslationExtensions
+$cs  = Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model,SystemFamily,TotalPhysicalMemory,PCSystemType,HypervisorPresent,NumberOfProcessors
+$bios = Get-CimInstance Win32_BIOS | Select-Object SMBIOSBIOSVersion,Manufacturer,ReleaseDate,SerialNumber,SMBIOSMajorVersion,SMBIOSMinorVersion
+$board = Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer,Product,Version,SerialNumber
+$osi = Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber,OSArchitecture,InstallDate,LastBootUpTime,RegisteredUser,SerialNumber,SystemDrive,FreePhysicalMemory,TotalVisibleMemorySize
+
+$firmware = 'unknown'
+try {
+  $sysDisk = Get-Disk | Where-Object { $_.IsSystem -or $_.IsBoot } | Select-Object -First 1
+  if ($sysDisk) { $firmware = if ($sysDisk.PartitionStyle -eq 'GPT') { 'UEFI' } else { 'Legacy' } }
+} catch {}
+
+$secureBoot = $null
+try { $secureBoot = [bool](Confirm-SecureBootUEFI) } catch { $secureBoot = $null }
+
+$tpm = $null
+try {
+  $t = Get-Tpm
+  $tpm = [PSCustomObject]@{
+    Present = [bool]$t.TpmPresent; Ready = [bool]$t.TpmReady; Enabled = [bool]$t.TpmEnabled; Activated = [bool]$t.TpmActivated
+    Manufacturer = $t.ManufacturerIdTxt; ManufacturerVersion = $t.ManufacturerVersion
+    SpecVersion = ($t.TpmVersion) | Out-String | ForEach-Object { $_.Trim() }
+  }
+} catch {
+  try {
+    $wt = Get-CimInstance -Namespace 'root\CIMV2\Security\MicrosoftTpm' -ClassName Win32_Tpm
+    if ($wt) {
+      $tpm = [PSCustomObject]@{
+        Present = $true; Ready = [bool]$wt.IsEnabled_InitialValue; Enabled = [bool]$wt.IsEnabled_InitialValue
+        Activated = [bool]$wt.IsActivated_InitialValue; Manufacturer = $wt.ManufacturerIdTxt
+        ManufacturerVersion = $wt.ManufacturerVersion; SpecVersion = $wt.SpecVersion
+      }
+    }
+  } catch {}
+}
+
+$memModules = Get-CimInstance Win32_PhysicalMemory | Select-Object BankLabel,DeviceLocator,Capacity,ConfiguredClockSpeed,Speed,Manufacturer,PartNumber,SerialNumber,FormFactor,MemoryType,SMBIOSMemoryType
+$memArray = Get-CimInstance Win32_PhysicalMemoryArray | Select-Object -First 1 MemoryDevices,MaxCapacity
+
+$gpus = Get-CimInstance Win32_VideoController | Select-Object Name,AdapterCompatibility,DriverVersion,DriverDate,AdapterRAM,VideoModeDescription,CurrentHorizontalResolution,CurrentVerticalResolution,CurrentRefreshRate,VideoProcessor,PNPDeviceID,Status
+
+$physicalDisks = @()
+try { $physicalDisks = Get-PhysicalDisk | Select-Object FriendlyName,MediaType,BusType,Size,SerialNumber,HealthStatus,SpindleSpeed,Manufacturer,Model,FirmwareVersion } catch {}
+$diskDrives = Get-CimInstance Win32_DiskDrive | Select-Object Model,InterfaceType,Size,SerialNumber,MediaType,FirmwareRevision,Status,Partitions
+$smart = @()
+try { $smart = Get-CimInstance -Namespace 'root\wmi' -ClassName MSStorageDriver_FailurePredictStatus | Select-Object InstanceName,PredictFailure,Reason } catch {}
+
+$logicalDisks = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID,VolumeName,FileSystem,Size,FreeSpace,ProviderName
+
+$adapters = @()
+try { $adapters = Get-NetAdapter | Where-Object { $_.Status -ne 'Not Present' } | Select-Object Name,InterfaceDescription,MacAddress,LinkSpeed,MediaType,Status,ifIndex,DriverVersion,DriverProvider } catch {
+  $adapters = Get-CimInstance Win32_NetworkAdapter | Where-Object { $_.PhysicalAdapter } | Select-Object Name,Description,MACAddress,Speed,NetConnectionStatus
+}
+$ips = @()
+try { $ips = Get-NetIPAddress | Where-Object { $_.AddressState -eq 'Preferred' -and $_.PrefixOrigin -ne 'WellKnown' } | Select-Object InterfaceIndex,IPAddress,AddressFamily,PrefixLength } catch {}
+
+$monitors = @()
+try {
+  $monitors = Get-CimInstance -Namespace 'root\wmi' -ClassName WmiMonitorID | ForEach-Object {
+    $name = -join ([char[]] ($_.UserFriendlyName | Where-Object { $_ -ne 0 }))
+    $manu = -join ([char[]] ($_.ManufacturerName | Where-Object { $_ -ne 0 }))
+    $serial = -join ([char[]] ($_.SerialNumberID | Where-Object { $_ -ne 0 }))
+    [PSCustomObject]@{ Name = $name; Manufacturer = $manu; Serial = $serial; YearOfManufacture = $_.YearOfManufacture; InstanceName = $_.InstanceName }
+  }
+} catch {}
+
+$battery = $null
+try {
+  $b = Get-CimInstance Win32_Battery | Select-Object -First 1
+  if ($b) {
+    $fullCharge = $null; $designCap = $null; $cycleCount = $null
+    try {
+      $fullCharge = (Get-CimInstance -Namespace 'root\wmi' -ClassName BatteryFullChargedCapacity | Select-Object -First 1).FullChargedCapacity
+      $designCap  = (Get-CimInstance -Namespace 'root\wmi' -ClassName BatteryStaticData      | Select-Object -First 1).DesignedCapacity
+      $cycleCount = (Get-CimInstance -Namespace 'root\wmi' -ClassName BatteryCycleCount      | Select-Object -First 1).CycleCount
+    } catch {}
+    $battery = [PSCustomObject]@{
+      Name = $b.Name; Manufacturer = $b.DeviceID; Chemistry = $b.Chemistry
+      EstimatedChargeRemaining = $b.EstimatedChargeRemaining; BatteryStatus = $b.BatteryStatus
+      DesignCapacity = $designCap; FullChargeCapacity = $fullCharge; CycleCount = $cycleCount
+    }
+  }
+} catch {}
+
+$cpuTemp = $null
+try {
+  $t = Get-CimInstance -Namespace 'root\wmi' -ClassName MSAcpi_ThermalZoneTemperature | Select-Object -First 1
+  if ($t) { $cpuTemp = [math]::Round(($t.CurrentTemperature / 10.0) - 273.15, 1) }
+} catch {}
+
+$hags = $null
+try { $hags = (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' -Name HwSchMode -ErrorAction Stop).HwSchMode } catch {}
+$dx = $null
+try { $dx = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\DirectX' -ErrorAction Stop).Version } catch {}
+
+$activation = $null
+try {
+  $lic = Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND ApplicationID = '55c92734-d682-4d71-983e-d6ec3f16059f'" | Select-Object -First 1
+  if ($lic) {
+    $status = switch ($lic.LicenseStatus) { 0 {'Unlicensed'} 1 {'Licensed'} 2 {'OOB Grace'} 3 {'OOT Grace'} 4 {'Non-Genuine Grace'} 5 {'Notification'} 6 {'Extended Grace'} default {'Unknown'} }
+    $activation = [PSCustomObject]@{ Status = $status; Description = $lic.Description; Channel = $lic.ProductKeyChannel }
+  }
+} catch {}
+
+$edition = $null; $displayVersion = $null; $ubr = $null
+try { $edition = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop).EditionID } catch {}
+try { $displayVersion = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop).DisplayVersion } catch {}
+try { $ubr = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop).UBR } catch {}
+
+[PSCustomObject]@{
+  cpu=$cpu; computer=$cs; bios=$bios; board=$board; os=$osi; osEdition=$edition; osDisplayVersion=$displayVersion; osUBR=$ubr
+  firmware=$firmware; secureBoot=$secureBoot; tpm=$tpm
+  memoryArray=$memArray; memoryModules=$memModules
+  gpus=$gpus; hags=$hags; directx=$dx
+  physicalDisks=$physicalDisks; diskDrives=$diskDrives; smart=$smart; logicalDisks=$logicalDisks
+  adapters=$adapters; ips=$ips; monitors=$monitors; battery=$battery; cpuTemp=$cpuTemp; activation=$activation
+  hostname=$env:COMPUTERNAME; user=$env:USERNAME
+  generatedAt=[int64]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
+} | ConvertTo-Json -Depth 6 -Compress
+`;
+
+let hwCache = null;
+let hwCacheAt = 0;
+
+function parseWmiDateHw(s) {
+  if (!s) return null;
+  const m = /\/Date\((\d+)\)/.exec(String(s));
+  return m ? Number(m[1]) : null;
+}
+function firstArr(x) { if (x == null) return []; return Array.isArray(x) ? x : [x]; }
+
+function normaliseHardware(d) {
+  const cpus = firstArr(d.cpu);
+  const cpu0 = cpus[0] || null;
+  const gpus = firstArr(d.gpus).map((g) => ({
+    name: g.Name || null,
+    vendor: g.AdapterCompatibility || null,
+    vram: typeof g.AdapterRAM === "number" ? g.AdapterRAM : null,
+    driverVersion: g.DriverVersion || null,
+    driverDate: parseWmiDateHw(g.DriverDate),
+    videoProcessor: g.VideoProcessor || null,
+    currentResolution: g.CurrentHorizontalResolution && g.CurrentVerticalResolution
+      ? `${g.CurrentHorizontalResolution} x ${g.CurrentVerticalResolution}` : null,
+    currentRefreshRate: typeof g.CurrentRefreshRate === "number" ? g.CurrentRefreshRate : null,
+    status: g.Status || null,
+    pnpId: g.PNPDeviceID || null,
+  }));
+
+  const memTypeMap = { 20:"DDR",21:"DDR2",22:"DDR2 FB-DIMM",24:"DDR3",26:"DDR4",34:"DDR5" };
+  const smbiosMemTypeMap = { 24:"DDR3",26:"DDR4",30:"LPDDR4",34:"DDR5",35:"LPDDR5" };
+  const formFactorMap = { 8:"DIMM",12:"SODIMM",13:"SRIMM" };
+
+  const memModules = firstArr(d.memoryModules).map((m) => ({
+    bank: m.BankLabel || m.DeviceLocator || null,
+    slot: m.DeviceLocator || null,
+    capacity: typeof m.Capacity === "string" ? Number(m.Capacity) : (m.Capacity ?? null),
+    configuredSpeed: m.ConfiguredClockSpeed ?? null,
+    ratedSpeed: m.Speed ?? null,
+    manufacturer: (m.Manufacturer || "").toString().trim() || null,
+    partNumber: (m.PartNumber || "").toString().trim() || null,
+    serial: (m.SerialNumber || "").toString().trim() || null,
+    formFactor: formFactorMap[m.FormFactor] || (m.FormFactor != null ? String(m.FormFactor) : null),
+    typeLabel: memTypeMap[m.MemoryType] || smbiosMemTypeMap[m.SMBIOSMemoryType] || null,
+  }));
+
+  const memInstalled = memModules.reduce((s, m) => s + (Number(m.capacity) || 0), 0);
+  const totalMem = d.computer && typeof d.computer.TotalPhysicalMemory === "string"
+    ? Number(d.computer.TotalPhysicalMemory)
+    : (d.computer?.TotalPhysicalMemory ?? memInstalled);
+  const freeKb = d.os?.FreePhysicalMemory ? Number(d.os.FreePhysicalMemory) : null;
+  const totalKb = d.os?.TotalVisibleMemorySize ? Number(d.os.TotalVisibleMemorySize) : null;
+
+  const smart = firstArr(d.smart);
+
+  const busMap = { 1:"SCSI",2:"ATAPI",3:"ATA",4:"1394",5:"SSA",6:"FC",7:"USB",8:"RAID",9:"iSCSI",10:"SAS",11:"SATA",12:"SD",13:"MMC",14:"MAX",15:"Virtual",16:"StorageSpaces",17:"NVMe" };
+  const mediaMap = { 0:null, 3:"HDD", 4:"SSD", 5:"SCM" };
+
+  const physical = firstArr(d.physicalDisks).map((p) => ({
+    name: p.FriendlyName || p.Model || null,
+    mediaType: mediaMap[p.MediaType] ?? (p.MediaType ? String(p.MediaType) : null),
+    busType: busMap[p.BusType] || (p.BusType ? String(p.BusType) : null),
+    size: typeof p.Size === "string" ? Number(p.Size) : (p.Size ?? null),
+    serial: (p.SerialNumber || "").toString().trim() || null,
+    health: p.HealthStatus || null,
+    manufacturer: p.Manufacturer || null,
+    model: p.Model || null,
+    firmware: p.FirmwareVersion || null,
+    spindleSpeed: p.SpindleSpeed ?? null,
+  }));
+
+  const drives = firstArr(d.diskDrives).map((x) => ({
+    model: x.Model || null,
+    interface: x.InterfaceType || null,
+    size: typeof x.Size === "string" ? Number(x.Size) : (x.Size ?? null),
+    serial: (x.SerialNumber || "").toString().trim() || null,
+    mediaType: x.MediaType || null,
+    firmware: x.FirmwareRevision || null,
+    status: x.Status || null,
+    partitions: x.Partitions ?? null,
+  }));
+
+  const volumes = firstArr(d.logicalDisks).map((v) => ({
+    letter: v.DeviceID || null,
+    label: v.VolumeName || null,
+    fileSystem: v.FileSystem || null,
+    size: typeof v.Size === "string" ? Number(v.Size) : (v.Size ?? null),
+    free: typeof v.FreeSpace === "string" ? Number(v.FreeSpace) : (v.FreeSpace ?? null),
+  }));
+
+  const adapters = firstArr(d.adapters).map((a) => ({
+    name: a.Name || null,
+    description: a.InterfaceDescription || a.Description || null,
+    mac: a.MacAddress || a.MACAddress || null,
+    linkSpeed: a.LinkSpeed || (a.Speed ? String(a.Speed) : null),
+    mediaType: a.MediaType || null,
+    status: a.Status || (a.NetConnectionStatus != null ? String(a.NetConnectionStatus) : null),
+    ifIndex: a.ifIndex ?? null,
+    driverVersion: a.DriverVersion || null,
+    driverProvider: a.DriverProvider || null,
+    addresses: [],
+  }));
+
+  const ips = firstArr(d.ips).map((i) => ({
+    ifIndex: i.InterfaceIndex ?? null,
+    ip: i.IPAddress || null,
+    family: (i.AddressFamily === 2 || i.AddressFamily === "IPv4") ? "IPv4"
+      : (i.AddressFamily === 23 || i.AddressFamily === "IPv6") ? "IPv6"
+      : (i.AddressFamily != null ? String(i.AddressFamily) : null),
+    prefix: i.PrefixLength ?? null,
+  }));
+  for (const ad of adapters) {
+    ad.addresses = ips
+      .filter((i) => i.ifIndex === ad.ifIndex && i.ip)
+      .map((i) => `${i.ip}${i.prefix != null ? "/" + i.prefix : ""} (${i.family})`);
+  }
+
+  const monitors = firstArr(d.monitors).map((m) => ({
+    name: (m.Name || "").trim() || null,
+    manufacturer: (m.Manufacturer || "").trim() || null,
+    serial: (m.Serial || "").trim() || null,
+    year: m.YearOfManufacture ?? null,
+    instance: m.InstanceName || null,
+  }));
+
+  const battery = d.battery ? (() => {
+    const design = d.battery.DesignCapacity ?? null;
+    const full = d.battery.FullChargeCapacity ?? null;
+    const wear = (design && full) ? Math.max(0, Math.round((1 - full / design) * 1000) / 10) : null;
+    const statusMap = { 1:"Discharging",2:"AC",3:"Fully charged",4:"Low",5:"Critical",6:"Charging",7:"Charging & High",8:"Charging & Low",9:"Charging & Critical",10:"Undefined",11:"Partially charged" };
+    return {
+      present: true,
+      name: d.battery.Name || null,
+      chemistry: d.battery.Chemistry ?? null,
+      percent: d.battery.EstimatedChargeRemaining ?? null,
+      status: statusMap[d.battery.BatteryStatus] || null,
+      designCapacity: design,
+      fullChargeCapacity: full,
+      wearPercent: wear,
+      cycleCount: d.battery.CycleCount ?? null,
+    };
+  })() : { present: false };
+
+  return {
+    generatedAt: d.generatedAt || Date.now(),
+    hostname: d.hostname || null,
+    user: d.user || null,
+    cpu: cpu0 ? {
+      name: cpu0.Name ? cpu0.Name.replace(/\s+/g, " ").trim() : null,
+      manufacturer: cpu0.Manufacturer || null,
+      cores: cpu0.NumberOfCores ?? null,
+      threads: cpu0.NumberOfLogicalProcessors ?? null,
+      baseClockMHz: cpu0.MaxClockSpeed ?? null,
+      currentClockMHz: cpu0.CurrentClockSpeed ?? null,
+      l2CacheKB: cpu0.L2CacheSize ?? null,
+      l3CacheKB: cpu0.L3CacheSize ?? null,
+      socket: cpu0.SocketDesignation || null,
+      loadPercent: cpu0.LoadPercentage ?? null,
+      virtualization: cpu0.VirtualizationFirmwareEnabled == null ? null : !!cpu0.VirtualizationFirmwareEnabled,
+      slat: cpu0.SecondLevelAddressTranslationExtensions == null ? null : !!cpu0.SecondLevelAddressTranslationExtensions,
+      tempC: d.cpuTemp ?? null,
+      count: cpus.length,
+    } : null,
+    computer: d.computer ? {
+      manufacturer: d.computer.Manufacturer || null,
+      model: d.computer.Model || null,
+      family: d.computer.SystemFamily || null,
+      hypervisorPresent: d.computer.HypervisorPresent == null ? null : !!d.computer.HypervisorPresent,
+    } : null,
+    bios: d.bios ? {
+      version: d.bios.SMBIOSBIOSVersion || null,
+      vendor: d.bios.Manufacturer || null,
+      releaseDate: parseWmiDateHw(d.bios.ReleaseDate),
+      serial: d.bios.SerialNumber || null,
+      smbios: d.bios.SMBIOSMajorVersion != null ? `${d.bios.SMBIOSMajorVersion}.${d.bios.SMBIOSMinorVersion}` : null,
+    } : null,
+    board: d.board ? {
+      manufacturer: d.board.Manufacturer || null,
+      product: d.board.Product || null,
+      version: d.board.Version || null,
+      serial: d.board.SerialNumber || null,
+    } : null,
+    os: d.os ? {
+      caption: d.os.Caption || null,
+      version: d.os.Version || null,
+      build: d.os.BuildNumber ? String(d.os.BuildNumber) : null,
+      ubr: d.osUBR ?? null,
+      arch: d.os.OSArchitecture || null,
+      edition: d.osEdition || null,
+      displayVersion: d.osDisplayVersion || null,
+      installDate: parseWmiDateHw(d.os.InstallDate),
+      lastBoot: parseWmiDateHw(d.os.LastBootUpTime),
+      registeredUser: d.os.RegisteredUser || null,
+      systemDrive: d.os.SystemDrive || null,
+    } : null,
+    firmware: d.firmware || "unknown",
+    secureBoot: d.secureBoot === true ? "on" : d.secureBoot === false ? "off" : "unknown",
+    tpm: d.tpm ? {
+      present: !!d.tpm.Present,
+      ready: !!d.tpm.Ready,
+      enabled: !!d.tpm.Enabled,
+      activated: d.tpm.Activated == null ? null : !!d.tpm.Activated,
+      manufacturer: d.tpm.Manufacturer || null,
+      manufacturerVersion: d.tpm.ManufacturerVersion || null,
+      specVersion: d.tpm.SpecVersion || null,
+    } : null,
+    directx: d.directx || null,
+    gpuScheduling: d.hags === 2 ? "hardware" : d.hags === 1 ? "software" : d.hags == null ? "unknown" : String(d.hags),
+    activation: d.activation ? {
+      status: d.activation.Status || null,
+      description: d.activation.Description || null,
+      channel: d.activation.Channel || null,
+    } : null,
+    memory: {
+      installedBytes: memInstalled || null,
+      totalBytes: totalMem || null,
+      totalKb, freeKb,
+      usedKb: (totalKb != null && freeKb != null) ? totalKb - freeKb : null,
+      slotsUsed: memModules.length,
+      slotsTotal: d.memoryArray?.MemoryDevices ?? null,
+      maxCapacityKb: d.memoryArray?.MaxCapacity ?? null,
+      modules: memModules,
+    },
+    gpus,
+    storage: { physical, drives, volumes },
+    network: { adapters, ips },
+    monitors,
+    battery,
+    smart: smart.map((s) => ({
+      instance: s.InstanceName || null,
+      predictFailure: !!s.PredictFailure,
+      reason: s.Reason ?? null,
+    })),
+  };
+}
+
+ipcMain.handle("hardware2:scan", async (_e, opts) => {
+  const force = !!(opts && opts.force);
+  if (!force && hwCache && Date.now() - hwCacheAt < 15_000) {
+    return { ok: true, data: hwCache, cached: true };
+  }
+  const r = await runPowerShell(HARDWARE_PS, 30_000);
+  if (!r.ok) return r;
+  try {
+    const normalised = normaliseHardware(r.data || {});
+    hwCache = normalised; hwCacheAt = Date.now();
+    return { ok: true, data: normalised, cached: false };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+});
+
+ipcMain.handle("hardware2:export", async (_e, payload) => {
+  try {
+    const format = payload?.format === "txt" ? "txt" : "json";
+    const content = payload?.content;
+    if (!content || typeof content !== "string") return { ok: false, error: "Manglende indhold" };
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const defaultPath = path.join(app.getPath("desktop"), `novyx-hardware-${stamp}.${format}`);
+    const win = BrowserWindow.getFocusedWindow() || mainWindow;
+    const result = await dialog.showSaveDialog(win, {
+      title: "Eksportér hardware-rapport",
+      defaultPath,
+      filters: [format === "json" ? { name: "JSON", extensions: ["json"] } : { name: "Tekst", extensions: ["txt"] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: true, cancelled: true };
+    await fsp.writeFile(result.filePath, content, "utf8");
+    return { ok: true, path: result.filePath };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
 
 
 

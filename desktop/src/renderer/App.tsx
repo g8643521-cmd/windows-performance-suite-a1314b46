@@ -3,7 +3,7 @@ import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { BoostPage } from "./pages/Boost";
 import { SystemScanPage } from "./pages/SystemScan";
-import { ScanPage as SpecsPage } from "./pages/Scan";
+import { HardwareCenterPage as SpecsPage } from "./pages/HardwareCenter";
 import { TweaksPage } from "./pages/Tweaks";
 import { GameBoostPage as ArcadePage } from "./pages/GameBoost";
 import { BenchmarkPage } from "./pages/Benchmark";
@@ -31,7 +31,7 @@ type Route =
 const META: Record<Route, { title: string; subtitle: string }> = {
   boost:     { title: "Boost",     subtitle: "Live ydelse · frigør hukommelse · ryd op" },
   scan:      { title: "Scan",      subtitle: "Intelligent system scan · rens · Fix pr. kategori" },
-  specs:     { title: "Specs",     subtitle: "Fuld hardware-oversigt · sensorer · lagring" },
+  specs:     { title: "Hardware",  subtitle: "CPU · GPU · RAM · lager · netværk · TPM · batteri" },
   tweaks:    { title: "Tweaks",    subtitle: "Windows-optimering · game mode · strøm" },
   arcade:    { title: "Game Boost", subtitle: "Registry-tweaks · profiler pr. spil · backup + gendan" },
   benchmark: { title: "Benchmark", subtitle: "Ydelsestest · CPU · GPU · lagring" },

@@ -80,6 +80,12 @@ contextBridge.exposeInMainWorld("novyx", {
     gameProfile:  (payload) => invoke("boost2:gameProfile", payload),
     gameProfiles: () => invoke("boost2:gameProfiles"),
   },
+
+  hardware2: {
+    scan: (opts) => invoke("hardware2:scan", opts),
+    export: (payload) => invoke("hardware2:export", payload),
+  },
 });
+
 
 
