@@ -1418,8 +1418,473 @@ ipcMain.handle("repair2:cancel", async (_e, jobId) => {
   return { ok: true };
 });
 
+// ═════════════════════════════════════════════════════════════
+// M4 · Game Boost Center
+// Rigtig registry-analyse, Safe/Advanced tweaks, backup + restore,
+// per-spil high-perf GPU + fullscreen-optimering. Ingen mock-data.
+// ═════════════════════════════════════════════════════════════
+
+function boostBackupDir() {
+  const d = path.join(app.getPath("userData"), "game-boost-backups");
+  try { fs.mkdirSync(d, { recursive: true }); } catch {}
+  return d;
+}
+
+const BOOST_ANALYZE_PS = String.raw`
+$ErrorActionPreference='SilentlyContinue'
+function Get-Val($path,$name){
+  try { (Get-ItemProperty -Path $path -Name $name -ErrorAction Stop).$name } catch { $null }
+}
+$gameMode      = Get-Val 'HKCU:\Software\Microsoft\GameBar' 'AutoGameModeEnabled'
+$gameBarShow   = Get-Val 'HKCU:\Software\Microsoft\GameBar' 'ShowStartupPanel'
+$hags          = Get-Val 'HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers' 'HwSchMode'
+$mmcssResp     = Get-Val 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile' 'SystemResponsiveness'
+$gamesGpuPri   = Get-Val 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games' 'GPU Priority'
+$gamesPri      = Get-Val 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games' 'Priority'
+$fseBehavior   = Get-Val 'HKCU:\System\GameConfigStore' 'GameDVR_FSEBehaviorMode'
+$active = (powercfg /getactivescheme) 2>$null
+$activeGuid = $null; $activeName = $null
+if ($active -match 'GUID: ([0-9a-fA-F-]+)\s+\((.+)\)') { $activeGuid = $matches[1]; $activeName = $matches[2] }
+$schemes = @()
+$list = (powercfg /list) 2>$null
+foreach ($ln in $list) {
+  if ($ln -match 'GUID: ([0-9a-fA-F-]+)\s+\((.+)\)') { $schemes += [PSCustomObject]@{ guid=$matches[1]; name=$matches[2] } }
+}
+$nagleCount = 0; $nagleTotal = 0
+try {
+  Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces' -ErrorAction SilentlyContinue | ForEach-Object {
+    $nagleTotal++
+    $ack = (Get-ItemProperty -Path $_.PSPath -Name 'TcpAckFrequency' -ErrorAction SilentlyContinue).TcpAckFrequency
+    if ($ack -eq 1) { $nagleCount++ }
+  }
+} catch {}
+[PSCustomObject]@{
+  gameMode=$gameMode; gameBarPanel=$gameBarShow; hags=$hags; mmcssResp=$mmcssResp
+  gamesGpuPri=$gamesGpuPri; gamesPri=$gamesPri; fseBehavior=$fseBehavior
+  activePlanGuid=$activeGuid; activePlanName=$activeName; schemes=$schemes
+  nagleDisabled=$nagleCount; nagleTotal=$nagleTotal
+} | ConvertTo-Json -Depth 5 -Compress
+`;
+
+const BOOST_LAUNCHERS_PS = String.raw`
+$ErrorActionPreference='SilentlyContinue'
+function TestReg($p){ Test-Path $p }
+function TestDir($p){ Test-Path -LiteralPath $p -PathType Container }
+$out = @()
+$steamPath = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Valve\Steam' -ErrorAction SilentlyContinue).InstallPath
+$out += [PSCustomObject]@{ id='steam'; name='Steam'; installed=[bool]$steamPath; path=$steamPath; count=$null }
+$epicManifest = 'C:\ProgramData\Epic\UnrealEngineLauncher\LauncherInstalled.dat'
+$epicCount = 0
+if (Test-Path $epicManifest) { try { $epicCount = (Get-Content $epicManifest -Raw | ConvertFrom-Json).InstallationList.Count } catch {} }
+$out += [PSCustomObject]@{ id='epic'; name='Epic Games'; installed=(Test-Path $epicManifest); path='C:\Program Files (x86)\Epic Games'; count=$epicCount }
+$eaKey = 'HKLM:\SOFTWARE\Electronic Arts\EA Desktop'
+$out += [PSCustomObject]@{ id='ea'; name='EA App'; installed=(TestReg $eaKey); path=(Get-ItemProperty $eaKey -ErrorAction SilentlyContinue).'InstallLocation'; count=$null }
+$ubiKey = 'HKLM:\SOFTWARE\WOW6432Node\Ubisoft\Launcher'
+$ubiCount = 0
+if (TestReg $ubiKey) { try { $ubiCount = (Get-ChildItem "$ubiKey\Installs" -ErrorAction SilentlyContinue | Measure-Object).Count } catch {} }
+$out += [PSCustomObject]@{ id='ubisoft'; name='Ubisoft Connect'; installed=(TestReg $ubiKey); path=(Get-ItemProperty $ubiKey -ErrorAction SilentlyContinue).'InstallDir'; count=$ubiCount }
+$bnetDir = "$env:ProgramData\Battle.net"
+$out += [PSCustomObject]@{ id='battlenet'; name='Battle.net'; installed=(TestDir $bnetDir); path=$bnetDir; count=$null }
+$riotDir = 'C:\Riot Games\Riot Client'
+$out += [PSCustomObject]@{ id='riot'; name='Riot Client'; installed=(TestDir $riotDir); path=$riotDir; count=$null }
+$gogRoot = 'HKLM:\SOFTWARE\WOW6432Node\GOG.com\Games'
+$gogCount = 0
+if (TestReg $gogRoot) { try { $gogCount = (Get-ChildItem $gogRoot -ErrorAction SilentlyContinue | Measure-Object).Count } catch {} }
+$out += [PSCustomObject]@{ id='gog'; name='GOG Galaxy'; installed=(TestReg $gogRoot); path=$null; count=$gogCount }
+$xboxApp = Get-AppxPackage -Name Microsoft.GamingApp -ErrorAction SilentlyContinue | Select-Object -First 1
+$out += [PSCustomObject]@{ id='xbox'; name='Xbox App'; installed=[bool]$xboxApp; path=$xboxApp.InstallLocation; count=$null }
+$mcDir = "$env:APPDATA\.minecraft"
+$out += [PSCustomObject]@{ id='minecraft'; name='Minecraft'; installed=(TestDir $mcDir); path=$mcDir; count=$null }
+$out | ConvertTo-Json -Depth 3 -Compress
+`;
+
+async function findLargestExe(dir, maxDepth) {
+  let best = null;
+  async function walk(d, depth) {
+    if (depth > maxDepth) return;
+    let entries;
+    try { entries = await fsp.readdir(d, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) { await walk(full, depth + 1); }
+      else if (e.isFile() && e.name.toLowerCase().endsWith(".exe")) {
+        if (/redist|crash|setup|unins|vcredist|launcher|installer|helper/i.test(e.name)) continue;
+        try {
+          const s = await fsp.stat(full);
+          if (!best || s.size > best.size) best = { path: full, size: s.size };
+        } catch {}
+      }
+    }
+  }
+  await walk(dir, 0);
+  return best ? best.path : null;
+}
+
+async function scanSteamRich() {
+  const games = await scanSteam();
+  for (const g of games) {
+    try {
+      const acfPath = path.join(g.library, "steamapps", `appmanifest_${g.appId}.acf`);
+      const txt = await fsp.readFile(acfPath, "utf8");
+      const m = /"installdir"\s+"([^"]+)"/.exec(txt);
+      if (!m) continue;
+      const gameDir = path.join(g.library, "steamapps", "common", m[1]);
+      g.installDir = gameDir;
+      const exe = await findLargestExe(gameDir, 3);
+      if (exe) g.exePath = exe;
+    } catch {}
+  }
+  return games;
+}
+
+async function scanEpicRich() {
+  const games = await scanEpic();
+  for (const g of games) {
+    if (g.library) {
+      const exe = await findLargestExe(g.library, 2);
+      if (exe) g.exePath = exe;
+    }
+  }
+  return games;
+}
+
+async function scanUbisoft() {
+  const r = await runPowerShell(String.raw`
+$out=@()
+$root='HKLM:\SOFTWARE\WOW6432Node\Ubisoft\Launcher\Installs'
+if (Test-Path $root) {
+  Get-ChildItem $root -ErrorAction SilentlyContinue | ForEach-Object {
+    $id = $_.PSChildName
+    $dir = (Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue).InstallDir
+    if ($dir) { $out += [PSCustomObject]@{ id=$id; dir=$dir; name=(Split-Path $dir -Leaf) } }
+  }
+}
+$out | ConvertTo-Json -Compress
+`, 8000);
+  if (!r.ok) return [];
+  const raw = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+  const games = [];
+  for (const g of raw) {
+    const exe = await findLargestExe(g.dir, 2);
+    games.push({
+      id: `ubisoft-${g.id}`, platform: "ubisoft", name: g.name || `Ubisoft ${g.id}`,
+      appId: g.id, sizeBytes: null, coverUrl: null, library: g.dir, exePath: exe,
+    });
+  }
+  return games;
+}
+
+async function scanGog() {
+  const r = await runPowerShell(String.raw`
+$out=@()
+$root='HKLM:\SOFTWARE\WOW6432Node\GOG.com\Games'
+if (Test-Path $root) {
+  Get-ChildItem $root -ErrorAction SilentlyContinue | ForEach-Object {
+    $p = Get-ItemProperty $_.PSPath -ErrorAction SilentlyContinue
+    if ($p.gameName -and $p.path) {
+      $out += [PSCustomObject]@{ id=$_.PSChildName; name=$p.gameName; dir=$p.path; exe=$p.exe }
+    }
+  }
+}
+$out | ConvertTo-Json -Compress
+`, 6000);
+  if (!r.ok) return [];
+  const raw = Array.isArray(r.data) ? r.data : r.data ? [r.data] : [];
+  return raw.map((g) => ({
+    id: `gog-${g.id}`, platform: "gog", name: g.name, appId: g.id,
+    sizeBytes: null, coverUrl: null, library: g.dir,
+    exePath: g.exe ? path.join(g.dir, g.exe) : null,
+  }));
+}
+
+ipcMain.handle("boost2:launchers", async () => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun Windows" };
+  const r = await runPowerShell(BOOST_LAUNCHERS_PS, 15000);
+  if (!r.ok) return r;
+  const arr = Array.isArray(r.data) ? r.data : [r.data];
+  return { ok: true, data: arr };
+});
+
+ipcMain.handle("boost2:scanGames", async () => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun Windows" };
+  try {
+    const [steam, epic, ubi, gog] = await Promise.all([
+      scanSteamRich(), scanEpicRich(), scanUbisoft(), scanGog(),
+    ]);
+    const all = [...steam, ...epic, ...ubi, ...gog].sort((a, b) => a.name.localeCompare(b.name));
+    return { ok: true, data: all };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle("boost2:analyze", async () => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun Windows" };
+  return await runPowerShell(BOOST_ANALYZE_PS, 12000);
+});
+
+const HKLM_MMCSS   = "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile";
+const HKLM_GAMES   = HKLM_MMCSS + "\\Tasks\\Games";
+const HKLM_GFX     = "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers";
+const HKCU_GAMEBAR = "HKCU:\\Software\\Microsoft\\GameBar";
+const HKCU_GDVR    = "HKCU:\\System\\GameConfigStore";
+
+const BOOST_TWEAKS = [
+  { id: "gamemode", tier: "safe", label: "Windows Game Mode",
+    reason: "Prioriterer CPU/GPU til det aktive spil og dæmper baggrundsopgaver.",
+    admin: false, kind: "reg", hive: HKCU_GAMEBAR, name: "AutoGameModeEnabled", type: "DWord", value: 1 },
+  { id: "gamebar-panel", tier: "safe", label: "Skjul Xbox Game Bar-tips",
+    reason: "Fjerner Game Bar-notifikationer der kan forstyrre gameplay.",
+    admin: false, kind: "reg", hive: HKCU_GAMEBAR, name: "ShowStartupPanel", type: "DWord", value: 0 },
+  { id: "hags", tier: "safe", label: "Hardware Accelerated GPU Scheduling",
+    reason: "Lader GPU'en styre sin egen scheduling og aflaster CPU'en.",
+    admin: true, kind: "reg", hive: HKLM_GFX, name: "HwSchMode", type: "DWord", value: 2, needsReboot: true },
+  { id: "mmcss-resp", tier: "safe", label: "MMCSS SystemResponsiveness = 10",
+    reason: "Reducerer tiden Windows reserverer til non-multimedia (20 % → 10 %).",
+    admin: true, kind: "reg", hive: HKLM_MMCSS, name: "SystemResponsiveness", type: "DWord", value: 10 },
+  { id: "games-gpu-pri", tier: "safe", label: "Games task · GPU Priority 8",
+    reason: "MMCSS 'Games'-profilen får maks. GPU-prioritet.",
+    admin: true, kind: "reg", hive: HKLM_GAMES, name: "GPU Priority", type: "DWord", value: 8 },
+  { id: "games-pri", tier: "safe", label: "Games task · Priority 6",
+    reason: "MMCSS 'Games' får høj CPU-prioritet (default 2).",
+    admin: true, kind: "reg", hive: HKLM_GAMES, name: "Priority", type: "DWord", value: 6 },
+  { id: "games-sched", tier: "safe", label: "Games task · Scheduling High",
+    reason: "MMCSS 'Games' scheduling category sat til High.",
+    admin: true, kind: "reg", hive: HKLM_GAMES, name: "Scheduling Category", type: "String", value: "High" },
+  { id: "games-sfio", tier: "safe", label: "Games task · SFIO Priority High",
+    reason: "Storage I/O prioritet for spil-tråde sat til High.",
+    admin: true, kind: "reg", hive: HKLM_GAMES, name: "SFIO Priority", type: "String", value: "High" },
+  { id: "power-high", tier: "safe", label: "Power Plan · High Performance",
+    reason: "Aktiverer High Performance-strømplan.",
+    admin: true, kind: "power", plan: "high" },
+
+  { id: "power-ultimate", tier: "advanced", label: "Power Plan · Ultimate Performance",
+    reason: "Duplikerer og aktiverer Ultimate Performance-strømplan.",
+    admin: true, kind: "power", plan: "ultimate" },
+  { id: "fse-off", tier: "advanced", label: "Deaktiver Fullscreen Optimizations globalt",
+    reason: "Fremtvinger exclusive fullscreen for alle spil (kan reducere input-lag).",
+    admin: false, kind: "reg-multi", writes: [
+      { hive: HKCU_GDVR, name: "GameDVR_FSEBehaviorMode", type: "DWord", value: 2 },
+      { hive: HKCU_GDVR, name: "GameDVR_HonorUserFSEBehaviorMode", type: "DWord", value: 1 },
+      { hive: HKCU_GDVR, name: "GameDVR_DXGIHonorFSEWindowsCompatible", type: "DWord", value: 1 },
+    ] },
+  { id: "nagle-off", tier: "advanced", label: "Deaktiver Nagle (TCP) på alle interfaces",
+    reason: "Fjerner TCP Nagle-forsinkelse. Kan sænke latency i online spil.",
+    admin: true, kind: "nagle" },
+];
+
+function psReadValue(hive, name) {
+  return `@{exists=[bool]((Get-ItemProperty -Path '${hive}' -Name '${name}' -ErrorAction SilentlyContinue).PSObject.Properties.Name -contains '${name}'); value=(Get-ItemProperty -Path '${hive}' -Name '${name}' -ErrorAction SilentlyContinue).'${name}'}`;
+}
+function psWriteValue(hive, name, type, value) {
+  const v = type === "String" ? `'${String(value).replace(/'/g, "''")}'` : String(value);
+  return `New-Item -Path '${hive}' -Force | Out-Null; Set-ItemProperty -Path '${hive}' -Name '${name}' -Type ${type} -Value ${v} -Force`;
+}
+function psRemoveValue(hive, name) {
+  return `Remove-ItemProperty -Path '${hive}' -Name '${name}' -ErrorAction SilentlyContinue`;
+}
+
+async function readBoostSnapshot() {
+  const parts = [];
+  for (const t of BOOST_TWEAKS) {
+    if (t.kind === "reg") parts.push(`'${t.id}'=${psReadValue(t.hive, t.name)}`);
+    else if (t.kind === "reg-multi") {
+      parts.push(`'${t.id}'=@(${t.writes.map((w) => psReadValue(w.hive, w.name)).join(",")})`);
+    }
+  }
+  parts.push(`'_powerActive'=(powercfg /getactivescheme | Out-String)`);
+  parts.push(`'_nagle'=@(Get-ChildItem 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces' -ErrorAction SilentlyContinue | ForEach-Object { $p=$_.PSPath; [PSCustomObject]@{ guid=$_.PSChildName; ack=(Get-ItemProperty -Path $p -Name 'TcpAckFrequency' -ErrorAction SilentlyContinue).TcpAckFrequency; nodelay=(Get-ItemProperty -Path $p -Name 'TCPNoDelay' -ErrorAction SilentlyContinue).TCPNoDelay } })`);
+  const script = `@{${parts.join(";")}} | ConvertTo-Json -Depth 6 -Compress`;
+  return await runPowerShell(script, 15000);
+}
+
+ipcMain.handle("boost2:tweaks", async () => ({
+  ok: true,
+  tweaks: BOOST_TWEAKS.map((t) => ({
+    id: t.id, tier: t.tier, label: t.label, reason: t.reason,
+    admin: !!t.admin, needsReboot: !!t.needsReboot, kind: t.kind,
+  })),
+}));
+
+ipcMain.handle("boost2:apply", async (_e, payload) => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun Windows" };
+  const ids = Array.isArray(payload?.ids) ? payload.ids : [];
+  const chosen = BOOST_TWEAKS.filter((t) => ids.includes(t.id));
+  if (chosen.length === 0) return { ok: false, error: "Ingen tweaks valgt" };
+
+  if (chosen.some((t) => t.admin) && !(await isProcessElevated())) {
+    return { ok: false, needsElevation: true, error: "Kræver administrator. Genstart NOVYX som admin." };
+  }
+
+  const snap = await readBoostSnapshot();
+  if (!snap.ok) return { ok: false, error: "Snapshot fejlede: " + snap.error };
+
+  const lines = ["$ErrorActionPreference='Continue'", "$applied=@()"];
+  for (const t of chosen) {
+    if (t.kind === "reg") {
+      lines.push(psWriteValue(t.hive, t.name, t.type, t.value));
+      lines.push(`$applied += '${t.id}'`);
+    } else if (t.kind === "reg-multi") {
+      for (const w of t.writes) lines.push(psWriteValue(w.hive, w.name, w.type, w.value));
+      lines.push(`$applied += '${t.id}'`);
+    } else if (t.kind === "power") {
+      if (t.plan === "high") lines.push("powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c | Out-Null");
+      else if (t.plan === "ultimate") {
+        lines.push("$dup = powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>$null");
+        lines.push("if ($dup -match 'GUID: ([0-9a-fA-F-]+)') { powercfg /setactive $matches[1] | Out-Null } else { powercfg /setactive e9a42b02-d5df-448d-aa00-03f14749eb61 | Out-Null }");
+      }
+      lines.push(`$applied += '${t.id}'`);
+    } else if (t.kind === "nagle") {
+      lines.push(String.raw`Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces' -ErrorAction SilentlyContinue | ForEach-Object { Set-ItemProperty -Path $_.PSPath -Name 'TcpAckFrequency' -Type DWord -Value 1 -Force; Set-ItemProperty -Path $_.PSPath -Name 'TCPNoDelay' -Type DWord -Value 1 -Force }`);
+      lines.push(`$applied += '${t.id}'`);
+    }
+  }
+  lines.push("[PSCustomObject]@{ok=$true;applied=$applied} | ConvertTo-Json -Compress");
+  const apply = await runPowerShell(lines.join("; "), 30000);
+  if (!apply.ok) return { ok: false, error: "Apply fejlede: " + apply.error };
+
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backup = {
+    id: stamp, ts: Date.now(), appliedIds: chosen.map((t) => t.id),
+    snapshot: snap.data, needsReboot: chosen.some((t) => t.needsReboot),
+  };
+  const backupPath = path.join(boostBackupDir(), `backup-${stamp}.json`);
+  try { await fsp.writeFile(backupPath, JSON.stringify(backup, null, 2), "utf8"); }
+  catch (e) { return { ok: false, error: "Kunne ikke gemme backup: " + e.message }; }
+  await writeState({ lastBoost: { ts: Date.now(), backupId: stamp, appliedIds: backup.appliedIds } });
+  return { ok: true, backupId: stamp, applied: apply.data?.applied || [], needsReboot: backup.needsReboot };
+});
+
+ipcMain.handle("boost2:backups", async () => {
+  const dir = boostBackupDir();
+  let entries = [];
+  try { entries = await fsp.readdir(dir); } catch { return { ok: true, data: [] }; }
+  const out = [];
+  for (const f of entries.sort().reverse()) {
+    if (!f.startsWith("backup-") || !f.endsWith(".json")) continue;
+    try {
+      const j = JSON.parse(await fsp.readFile(path.join(dir, f), "utf8"));
+      out.push({ id: j.id, ts: j.ts, appliedIds: j.appliedIds || [], needsReboot: !!j.needsReboot });
+    } catch {}
+  }
+  return { ok: true, data: out };
+});
+
+ipcMain.handle("boost2:restore", async (_e, payload) => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun Windows" };
+  const id = payload?.id;
+  if (!id) return { ok: false, error: "Manglende backup-id" };
+  const bpath = path.join(boostBackupDir(), `backup-${id}.json`);
+  let backup;
+  try { backup = JSON.parse(await fsp.readFile(bpath, "utf8")); }
+  catch (e) { return { ok: false, error: "Kan ikke læse backup: " + e.message }; }
+
+  const admin = backup.appliedIds.some((tid) => BOOST_TWEAKS.find((t) => t.id === tid)?.admin);
+  if (admin && !(await isProcessElevated())) return { ok: false, needsElevation: true, error: "Kræver administrator." };
+
+  const snap = backup.snapshot || {};
+  const lines = ["$ErrorActionPreference='Continue'", "$restored=@()"];
+  for (const tid of backup.appliedIds) {
+    const t = BOOST_TWEAKS.find((x) => x.id === tid);
+    if (!t) continue;
+    if (t.kind === "reg") {
+      const prev = snap[tid];
+      if (prev && prev.exists) lines.push(psWriteValue(t.hive, t.name, t.type, prev.value));
+      else lines.push(psRemoveValue(t.hive, t.name));
+      lines.push(`$restored += '${tid}'`);
+    } else if (t.kind === "reg-multi") {
+      const prevArr = snap[tid] || [];
+      t.writes.forEach((w, i) => {
+        const prev = prevArr[i];
+        if (prev && prev.exists) lines.push(psWriteValue(w.hive, w.name, w.type, prev.value));
+        else lines.push(psRemoveValue(w.hive, w.name));
+      });
+      lines.push(`$restored += '${tid}'`);
+    } else if (t.kind === "power") {
+      const m = /GUID: ([0-9a-fA-F-]+)/.exec(String(snap._powerActive || ""));
+      if (m) lines.push(`powercfg /setactive ${m[1]} | Out-Null`);
+      lines.push(`$restored += '${tid}'`);
+    } else if (t.kind === "nagle") {
+      const nagleArr = Array.isArray(snap._nagle) ? snap._nagle : [];
+      for (const nif of nagleArr) {
+        const base = `HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters\\Interfaces\\${nif.guid}`;
+        if (nif.ack == null) lines.push(`Remove-ItemProperty -Path '${base}' -Name 'TcpAckFrequency' -ErrorAction SilentlyContinue`);
+        else lines.push(`Set-ItemProperty -Path '${base}' -Name 'TcpAckFrequency' -Type DWord -Value ${Number(nif.ack)} -Force`);
+        if (nif.nodelay == null) lines.push(`Remove-ItemProperty -Path '${base}' -Name 'TCPNoDelay' -ErrorAction SilentlyContinue`);
+        else lines.push(`Set-ItemProperty -Path '${base}' -Name 'TCPNoDelay' -Type DWord -Value ${Number(nif.nodelay)} -Force`);
+      }
+      lines.push(`$restored += '${tid}'`);
+    }
+  }
+  lines.push("[PSCustomObject]@{ok=$true;restored=$restored} | ConvertTo-Json -Compress");
+  const r = await runPowerShell(lines.join("; "), 30000);
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, restored: r.data?.restored || [] };
+});
+
+// Per-spil profil: high-perf GPU + fullscreen-opt override.
+ipcMain.handle("boost2:gameProfile", async (_e, payload) => {
+  if (process.platform !== "win32") return { ok: false, error: "Kun Windows" };
+  const { gameId, exePath, action } = payload || {};
+  if (!gameId) return { ok: false, error: "Manglende gameId" };
+  const GPU = "HKCU:\\Software\\Microsoft\\DirectX\\UserGpuPreferences";
+  const LAY = "HKCU:\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers";
+  const store = path.join(boostBackupDir(), "game-profiles.json");
+  let cur = {};
+  try { cur = JSON.parse(await fsp.readFile(store, "utf8")); } catch {}
+
+  if (action === "status") return { ok: true, active: !!cur[gameId] };
+
+  if (!exePath) return { ok: false, error: "Ingen exe kunne findes for dette spil" };
+  const exe = String(exePath).replace(/'/g, "''");
+
+  if (action === "apply") {
+    const before = await runPowerShell(
+      `@{ gpu=(Get-ItemProperty -Path '${GPU}' -Name '${exe}' -ErrorAction SilentlyContinue).'${exe}'; lay=(Get-ItemProperty -Path '${LAY}' -Name '${exe}' -ErrorAction SilentlyContinue).'${exe}' } | ConvertTo-Json -Compress`,
+      6000,
+    );
+    const script = [
+      `New-Item -Path '${GPU}' -Force | Out-Null`,
+      `Set-ItemProperty -Path '${GPU}' -Name '${exe}' -Value 'GpuPreference=2;' -Force`,
+      `New-Item -Path '${LAY}' -Force | Out-Null`,
+      `Set-ItemProperty -Path '${LAY}' -Name '${exe}' -Value '~ DISABLEDXMAXIMIZEDWINDOWEDMODE' -Force`,
+      "[PSCustomObject]@{ok=$true} | ConvertTo-Json -Compress",
+    ].join("; ");
+    const w = await runPowerShell(script, 8000);
+    if (!w.ok) return { ok: false, error: w.error };
+    cur[gameId] = { exePath, ts: Date.now(), before: before.ok ? before.data : null };
+    try { await fsp.writeFile(store, JSON.stringify(cur, null, 2), "utf8"); } catch {}
+    return { ok: true, applied: { highPerfGpu: true, disableFsOpt: true } };
+  }
+
+  if (action === "restore") {
+    const b = cur[gameId];
+    const before = b?.before || { gpu: null, lay: null };
+    const lines = [];
+    if (before.gpu) lines.push(`Set-ItemProperty -Path '${GPU}' -Name '${exe}' -Value '${String(before.gpu).replace(/'/g,"''")}' -Force`);
+    else lines.push(`Remove-ItemProperty -Path '${GPU}' -Name '${exe}' -ErrorAction SilentlyContinue`);
+    if (before.lay) lines.push(`Set-ItemProperty -Path '${LAY}' -Name '${exe}' -Value '${String(before.lay).replace(/'/g,"''")}' -Force`);
+    else lines.push(`Remove-ItemProperty -Path '${LAY}' -Name '${exe}' -ErrorAction SilentlyContinue`);
+    lines.push("[PSCustomObject]@{ok=$true} | ConvertTo-Json -Compress");
+    const r = await runPowerShell(lines.join("; "), 8000);
+    if (!r.ok) return { ok: false, error: r.error };
+    delete cur[gameId];
+    try { await fsp.writeFile(store, JSON.stringify(cur, null, 2), "utf8"); } catch {}
+    return { ok: true, restored: true };
+  }
+
+  return { ok: false, error: "Ukendt action" };
+});
+
+ipcMain.handle("boost2:gameProfiles", async () => {
+  const store = path.join(boostBackupDir(), "game-profiles.json");
+  try { return { ok: true, data: JSON.parse(await fsp.readFile(store, "utf8")) }; }
+  catch { return { ok: true, data: {} }; }
+});
+
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
 
 
