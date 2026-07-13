@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteLayout } from "@/components/site-layout";
 import { StatusChip } from "@/components/status-chip";
-import { APP_VERSION, CHANGELOG, DOWNLOAD_PATH, SOURCE_VERSION, SOURCE_UPDATED, SOURCE_AHEAD_OF_BUILD, checkDownloadAvailable, formatReleaseDate, getReleaseTypeMeta } from "@/lib/app-version";
+import { APP_VERSION, CHANGELOG, DOWNLOAD_PATH, DOWNLOADS, SOURCE_VERSION, SOURCE_UPDATED, SOURCE_AHEAD_OF_BUILD, checkDownloadAvailable, formatReleaseDate, getReleaseTypeMeta } from "@/lib/app-version";
 import { Download, Terminal, Copy, Check, Fingerprint, ShieldCheck, AlertTriangle, Monitor, RefreshCw, Package, Zap, Cpu, Calendar, Hash, HardDrive, Plus, Minus, GitCommit } from "lucide-react";
 import { useEffect, useState } from "react";
 
