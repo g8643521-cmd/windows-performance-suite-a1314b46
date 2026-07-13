@@ -8,7 +8,7 @@
 // kildekode end den ZIP brugeren kan hente. Download-siden viser det tydeligt
 // i stedet for at foregive at en ny build er publiceret.
 
-export const DOWNLOAD_PATH = "/__l5e/assets-v1/a206fe87-804e-41c3-a6fc-c87b2db72050/NOVYX_v0.15.0-a.zip";
+export const DOWNLOAD_PATH = "/__l5e/assets-v1/7f33a5e2-eeca-411e-944a-f1bca20d61c2/NOVYX_v0.15.0-a.zip";
 
 // Nuværende kildekode-version (bumpes ved HVER kodeændring i desktop/).
 export const SOURCE_VERSION = "0.15.0-a";
