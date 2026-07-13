@@ -77,26 +77,49 @@ function DownloadPage() {
                   <button disabled className="btn-primary">
                     <RefreshCw className="h-4 w-4 animate-spin" /> Tjekker…
                   </button>
-                ) : isAvailable ? (
+                ) : DOWNLOADS.installer.available && DOWNLOADS.installer.path ? (
                   <a
-                    href={DOWNLOAD_PATH}
-                    download={APP_VERSION.filename}
+                    href={DOWNLOADS.installer.path}
+                    download={DOWNLOADS.installer.filename}
                     className="btn-primary !text-base !py-4 !px-7"
                   >
-                    <Download className="h-5 w-5" /> Windows (x64)
+                    <Download className="h-5 w-5" /> Download Setup (.exe)
                   </a>
                 ) : (
                   <div className="inline-flex items-center gap-2 rounded-2xl border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] px-6 py-4 text-sm text-[color:var(--warning)]">
-                    <AlertTriangle className="h-4 w-4" /> Installer publiceres snart
+                    <AlertTriangle className="h-4 w-4" />
+                    Installer bygges via CI — endnu ikke uploadet
                   </div>
                 )}
-                <a href="#powershell" className="btn-ghost !text-base !py-4 !px-7">
-                  <Terminal className="h-4 w-4" /> PowerShell
-                </a>
+
+                {isAvailable ? (
+                  <a
+                    href={DOWNLOAD_PATH}
+                    download={APP_VERSION.filename}
+                    className="btn-ghost !text-base !py-4 !px-7"
+                  >
+                    <Package className="h-4 w-4" /> Portable ZIP
+                  </a>
+                ) : (
+                  <button disabled className="btn-ghost !text-base !py-4 !px-7 opacity-50">
+                    <Package className="h-4 w-4" /> Portable ZIP (utilgængelig)
+                  </button>
+                )}
               </div>
 
-              <div className="mt-5 text-xs text-fg-dim font-mono">
-                {APP_VERSION.filename} · {APP_VERSION.fileSize} · SHA-256 verified
+              <div className="mt-5 text-xs text-fg-dim font-mono space-y-1">
+                {DOWNLOADS.installer.available && DOWNLOADS.installer.fileSize ? (
+                  <div>
+                    {DOWNLOADS.installer.filename} · {DOWNLOADS.installer.fileSize} · SHA-256 verified
+                  </div>
+                ) : (
+                  <div className="text-[color:var(--warning)]/80">
+                    {DOWNLOADS.installer.filename} · bygges via GitHub Actions
+                  </div>
+                )}
+                <div className="text-fg-dim/70">
+                  Alternativ: {APP_VERSION.filename} · {APP_VERSION.fileSize}
+                </div>
               </div>
             </div>
 
