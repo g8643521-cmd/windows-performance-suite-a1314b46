@@ -13,7 +13,7 @@ import { LabPage } from "./pages/Lab";
 import { SettingsPage } from "./pages/Settings";
 
 const MBoost     = memo(BoostPage);
-const MScan      = memo(HealthScanPage);
+const MScan      = memo(SystemScanPage);
 const MSpecs     = memo(SpecsPage);
 const MTweaks    = memo(TweaksPage);
 const MArcade    = memo(ArcadePage);
