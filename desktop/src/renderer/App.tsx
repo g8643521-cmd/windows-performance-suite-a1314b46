@@ -2,7 +2,7 @@ import { memo, useState, type JSX } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { BoostPage } from "./pages/Boost";
-import { HealthScanPage } from "./pages/HealthScan";
+import { SystemScanPage } from "./pages/SystemScan";
 import { ScanPage as SpecsPage } from "./pages/Scan";
 import { TweaksPage } from "./pages/Tweaks";
 import { GamesPage as ArcadePage } from "./pages/Games";
