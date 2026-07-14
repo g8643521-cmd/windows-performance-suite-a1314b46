@@ -133,19 +133,27 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.15.0-a",
-    date: "2026-07-13", time: "19:05", type: "feature",
-    filename: "NOVYX_v0.15.0-a.zip", fileSize: "117 MB",
-    highlight: "M1 · Ægte Windows-data på Dashboardet — BIOS, TPM, Secure Boot, ping/jitter, admin-genstart",
+    date: "2026-07-14", time: "12:45", type: "feature",
+    filename: "NOVYX-Setup-0.15.0-a.exe", fileSize: "79,4 MB",
+    highlight: "Første officielle Windows-release via GitHub — NSIS installer som primær build",
     notes: [
-      "Dashboard: live CPU-, RAM-, GPU- og disk-forbrug side om side som fire kort, hvert med progressbar",
-      "Dashboard: netværks-sektion med download/upload, ping mod 1.1.1.1 (avg/jitter/tab) og oppetid",
-      "Dashboard: systemstatus-kort med Windows-version + build, BIOS/UEFI (version, producent, dato), Secure Boot, TPM (present/ready/enabled + producent) og Windows Defender (realtime, motor, sidste scan)",
-      "Dashboard: 'Seneste scanning' og 'Seneste optimering' huskes på tværs af genstart via userData/state.json",
-      "Ny knap 'Kør som administrator' — genstarter hele NOVYX elevated via UAC (kun én prompt for hele sessionen)",
-      "Sundhedsscore baseret på rigtige data: CPU-load, hukommelse, CPU-temp, GPU-load, ping/jitter/tab",
-      "IPC: sys:info (WMI/CIM med caching), sys:ping (System.Net.NetworkInformation.Ping med jitter-beregning), state:read/setLastScan/setLastOptimize, app:isElevated/relaunchAsAdmin",
+      "Ny primær download: NOVYX-Setup-0.15.0-a.exe (NSIS installer, 79,4 MB) — installationsguide, Start-menu-genvej, skrivebordsgenvej, kan afinstalleres via Apps & Features",
+      "Portable alternativ: NOVYX-0.15.0-a-win-x64.zip (108 MB) — ingen installation, udpak og kør",
+      "Begge artefakter bygges via GitHub Actions og udgives som GitHub Release (v0.15.0-a) — stabil versionsstyring og direkte download-links",
+      "SHA-256 (Setup.exe): 958d3e6567c2e774a8c01bc4db54a5cc36f61930f10f8d03c31ce28a676b4b20",
+      "SHA-256 (Portable.zip): d4cdc9036e2b52c2fe80acbc1ba5fbd30dcb6ff2b2ed9701933e233165ac6dee",
+      "M1 · Ægte Windows-data på Dashboardet: live CPU/RAM/GPU/disk, netværk (download/upload, ping mod 1.1.1.1 med jitter/tab), oppetid",
+      "M1 · Systemstatus: Windows-version + build, BIOS/UEFI, Secure Boot, TPM, Windows Defender",
+      "M1 · 'Seneste scanning' og 'Seneste optimering' huskes via userData/state.json",
+      "M1 · 'Kør som administrator'-knap — genstarter NOVYX elevated via én UAC-prompt",
+      "M2 · System Scan: PowerShell-baseret scanning af systemets sundhed",
+      "M3 · Repair Center: 13 system-værktøjer (SFC, DISM, DNS flush m.fl.)",
+      "M4 · Game Boost: launcher-detektion, registry-optimeringer og dashboard",
+      "M5 · Hardware Center: fuld CIM-indsamling af hardware-data",
     ],
   },
+
+
 
   {
     version: "0.14.3-a",
