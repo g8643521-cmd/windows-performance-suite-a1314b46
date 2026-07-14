@@ -95,6 +95,9 @@ export const DOWNLOADS: Record<DownloadKind, DownloadArtifact> = {
 // "aktiv".
 export async function checkArtifactAvailable(artifact: DownloadArtifact): Promise<boolean> {
   if (!artifact.available || !artifact.path) return false;
+  // Eksterne URLs (GitHub Releases) tillader ikke CORS HEAD-check fra browser.
+  // Vi stoler på konfigurationen for absolute URLs.
+  if (/^https?:\/\//i.test(artifact.path)) return true;
   try {
     const res = await fetch(artifact.path, { method: "HEAD" });
     if (!res.ok) return false;
@@ -105,6 +108,7 @@ export async function checkArtifactAvailable(artifact: DownloadArtifact): Promis
     return false;
   }
 }
+
 
 // Bagudkompatibel wrapper — bruges stadig af eksisterende komponenter.
 export async function checkDownloadAvailable(): Promise<boolean> {
