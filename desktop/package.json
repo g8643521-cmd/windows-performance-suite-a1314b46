@@ -1,6 +1,6 @@
 {
   "name": "novyx-desktop",
-  "version": "0.15.1-a",
+  "version": "0.15.2-a",
   "description": "NOVYX — Premium Windows game optimizer",
   "main": "electron/main.cjs",
   "author": {
@@ -78,6 +78,7 @@
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerHeaderIcon": "build/icon.ico",
+      "include": "build/installer.nsh",
       "artifactName": "NOVYX-Setup-${version}.${ext}"
     },
     "portable": {
