@@ -28,8 +28,14 @@ export function BoostPage() {
       } catch (e) { if (!cancelled) setError((e as Error).message); }
     }
     refresh();
-    const id = window.setInterval(() => { fetchLive().then(setLive).catch(() => {}); }, 2000);
-    const idBig = window.setInterval(refresh, 15000);
+    let liveBusy = false;
+    const id = window.setInterval(() => {
+      if (liveBusy) return;
+      liveBusy = true;
+      fetchLive().then((s) => { if (!cancelled) setLive(s); }).catch(() => {}).finally(() => { liveBusy = false; });
+    }, 3000);
+    const idBig = window.setInterval(refresh, 20000);
+
     return () => { cancelled = true; window.clearInterval(id); window.clearInterval(idBig); };
   }, [desktop]);
 
