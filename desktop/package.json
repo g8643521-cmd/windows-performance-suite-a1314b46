@@ -1,6 +1,6 @@
 {
   "name": "novyx-desktop",
-  "version": "0.15.0-a",
+  "version": "0.15.1-a",
   "description": "NOVYX — Premium Windows game optimizer",
   "main": "electron/main.cjs",
   "author": {
