@@ -68,18 +68,23 @@ export function DashboardPage() {
   const [busy, setBusy] = useState<null | "scan" | "export" | "ping" | "elevate">(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Live-polling (2s)
+  // Live-polling (3s med overlap-guard)
   useEffect(() => {
     if (!desktop) return;
     let mounted = true;
+    let running = false;
     const tick = async () => {
+      if (running) return;
+      running = true;
       try { const s = await fetchLive(); if (mounted) setLive(s); }
       catch { /* transient */ }
+      finally { running = false; }
     };
     tick();
-    const id = window.setInterval(tick, 2000);
+    const id = window.setInterval(tick, 3000);
     return () => { mounted = false; window.clearInterval(id); };
   }, [desktop]);
+
 
   // Persisted state + admin/sys på mount
   useEffect(() => {

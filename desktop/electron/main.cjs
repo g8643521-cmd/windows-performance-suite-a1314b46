@@ -154,34 +154,56 @@ ipcMain.handle("hardware:scan", async () => {
 
 // ─────────────────────────────────────────────────────────────
 // Live system snapshot — hurtig, opdateres i loop fra renderer
+// Dyre målinger (cpuTemperature, networkStats) caches for at undgå
+// at hver 2-3s tick spawner tunge WMI-kald og laver hakken.
 // ─────────────────────────────────────────────────────────────
+let _tempCache = { value: null, at: 0 };
+let _netCache = { value: null, at: 0 };
+let _liveInFlight = null;
+
+async function _computeLive() {
+  const si = require("systeminformation");
+  const now = Date.now();
+  // cpuTemperature: 15s cache — WMI-kaldet er den dyreste komponent
+  const tempP = (now - _tempCache.at) > 15_000
+    ? si.cpuTemperature().then((t) => { _tempCache = { value: t, at: Date.now() }; return t; }).catch(() => _tempCache.value)
+    : Promise.resolve(_tempCache.value);
+  // networkStats: 4s cache — stadig live nok til grafer, men undgår dobbelt-kald
+  const netP = (now - _netCache.at) > 4_000
+    ? si.networkStats().then((n) => { _netCache = { value: n, at: Date.now() }; return n; }).catch(() => _netCache.value || [])
+    : Promise.resolve(_netCache.value || []);
+  const [load, mem, netStats, temp] = await Promise.all([
+    si.currentLoad().catch(() => null),
+    si.mem().catch(() => null),
+    netP,
+    tempP,
+  ]);
+  const primary = Array.isArray(netStats) ? netStats[0] : null;
+  return {
+    ts: Date.now(),
+    cpuLoad: load?.currentLoad ?? null,
+    memUsed: mem?.active ?? null,
+    memTotal: mem?.total ?? null,
+    rxSec: primary?.rx_sec ?? null,
+    txSec: primary?.tx_sec ?? null,
+    cpuTemp: temp?.main ?? null,
+    uptimeSec: Math.floor(os.uptime()),
+  };
+}
+
 ipcMain.handle("system:live", async () => {
   try {
-    const si = require("systeminformation");
-    const [load, mem, netStats, temp] = await Promise.all([
-      si.currentLoad().catch(() => null),
-      si.mem().catch(() => null),
-      si.networkStats().catch(() => []),
-      si.cpuTemperature().catch(() => null),
-    ]);
-    const primary = Array.isArray(netStats) ? netStats[0] : null;
-    return {
-      ok: true,
-      data: {
-        ts: Date.now(),
-        cpuLoad: load?.currentLoad ?? null,
-        memUsed: mem?.active ?? null,
-        memTotal: mem?.total ?? null,
-        rxSec: primary?.rx_sec ?? null,
-        txSec: primary?.tx_sec ?? null,
-        cpuTemp: temp?.main ?? null,
-        uptimeSec: Math.floor(os.uptime()),
-      },
-    };
+    // Dedupliker overlappende kald: hvis et tick allerede er i gang, del resultatet
+    if (!_liveInFlight) {
+      _liveInFlight = _computeLive().finally(() => { _liveInFlight = null; });
+    }
+    const data = await _liveInFlight;
+    return { ok: true, data };
   } catch (err) {
     return { ok: false, error: err?.message || String(err) };
   }
 });
+
 
 // ─────────────────────────────────────────────────────────────
 // Game detection — Steam + Epic (rigtige installerede spil)
