@@ -8,25 +8,29 @@
 // kildekode end den ZIP brugeren kan hente. Download-siden viser det tydeligt
 // i stedet for at foregive at en ny build er publiceret.
 
-export const DOWNLOAD_PATH = "/__l5e/assets-v1/7f33a5e2-eeca-411e-944a-f1bca20d61c2/NOVYX_v0.15.0-a.zip";
+// GitHub Release som kilde til download (stabil versionsstyring).
+export const GITHUB_RELEASE_BASE =
+  "https://github.com/g8643521-cmd/windows-performance-suite-a1314b46/releases/download/v0.15.0-a";
+
+export const DOWNLOAD_PATH = `${GITHUB_RELEASE_BASE}/NOVYX-Setup-0.15.0-a.exe`;
 
 // Nuværende kildekode-version (bumpes ved HVER kodeændring i desktop/).
 export const SOURCE_VERSION = "0.15.0-a";
-export const SOURCE_UPDATED = "2026-07-13";
+export const SOURCE_UPDATED = "2026-07-14";
 
 
 export const APP_VERSION = {
-  // "latest" = seneste downloadbare build. Bumpes KUN når en ny ZIP er uploadet.
+  // "latest" = seneste downloadbare build (primær = Setup.exe).
   latest: "0.15.0-a",
-  released: "2026-07-13",
-  fileSize: "117 MB",
-  fileSizeBytes: 122553131,
+  released: "2026-07-14",
+  fileSize: "79,4 MB",
+  fileSizeBytes: 83257515,
   extractedSize: "285 MB",
-  filename: "NOVYX_v0.15.0-a.zip",
+  filename: "NOVYX-Setup-0.15.0-a.exe",
   fileCount: 4211,
-  sha256: "f26b4186e23ea27dbce6eb01cc6c292213081cb0f62d7895df58f635233a8546",
+  sha256: "958d3e6567c2e774a8c01bc4db54a5cc36f61930f10f8d03c31ce28a676b4b20",
   electronVersion: "33.4.11",
-  buildDate: "13. juli 2026",
+  buildDate: "14. juli 2026",
   supportedOs: [
     "Windows 10 (64-bit)",
     "Windows 11 (64-bit)",
@@ -37,16 +41,11 @@ export const SOURCE_AHEAD_OF_BUILD = SOURCE_VERSION !== APP_VERSION.latest;
 
 
 // -----------------------------------------------------------------------------
-// Dual-download: Installer (NSIS .exe) + Portable (ZIP)
+// Dual-download: Installer (NSIS .exe, primær) + Portable (ZIP, sekundær)
 // -----------------------------------------------------------------------------
-// Begge artefakter kommer fra SAMME kildekode og SAMME version.
-// Portable ZIP er allerede uploadet. Setup.exe kræver en Windows-build via
-// GitHub Actions (.github/workflows/build-windows.yml) og markeres som
-// "available: false" indtil den reelt er uploadet til CDN.
-//
-// Når en ny Setup.exe er bygget og uploadet:
-//   1) Sæt DOWNLOADS.installer.available = true
-//   2) Udfyld path, sha256 og fileSize (og evt. fileSizeBytes)
+// Begge artefakter kommer fra SAMME kildekode og SAMME version, bygget via
+// GitHub Actions (.github/workflows/build-windows.yml) og udgivet som GitHub
+// Release for stabil versionsstyring.
 
 export type DownloadKind = "installer" | "portable";
 
@@ -65,16 +64,15 @@ export type DownloadArtifact = {
 export const DOWNLOADS: Record<DownloadKind, DownloadArtifact> = {
   installer: {
     kind: "installer",
-    label: "Windows Installer",
+    label: "Windows Installer (anbefalet)",
     description:
       "Installationsguide med valgfri mappe, Start-menu og skrivebordsgenvej. Kan afinstalleres via Windows.",
-    // Sæt til true når NOVYX-Setup-<version>.exe er uploadet til CDN.
-    available: false,
-    filename: `NOVYX-Setup-${APP_VERSION.latest}.exe`,
-    path: null,
-    sha256: null,
-    fileSize: null,
-    fileSizeBytes: null,
+    available: true,
+    filename: "NOVYX-Setup-0.15.0-a.exe",
+    path: `${GITHUB_RELEASE_BASE}/NOVYX-Setup-0.15.0-a.exe`,
+    sha256: "958d3e6567c2e774a8c01bc4db54a5cc36f61930f10f8d03c31ce28a676b4b20",
+    fileSize: "79,4 MB",
+    fileSizeBytes: 83257515,
   },
   portable: {
     kind: "portable",
@@ -82,13 +80,14 @@ export const DOWNLOADS: Record<DownloadKind, DownloadArtifact> = {
     description:
       "Ingen installation. Udpak og kør NOVYX.exe direkte — efterlader ingen spor på systemet.",
     available: true,
-    filename: APP_VERSION.filename,
-    path: DOWNLOAD_PATH,
-    sha256: APP_VERSION.sha256,
-    fileSize: APP_VERSION.fileSize,
-    fileSizeBytes: APP_VERSION.fileSizeBytes,
+    filename: "NOVYX-0.15.0-a-win-x64.zip",
+    path: `${GITHUB_RELEASE_BASE}/NOVYX-0.15.0-a-win-x64.zip`,
+    sha256: "d4cdc9036e2b52c2fe80acbc1ba5fbd30dcb6ff2b2ed9701933e233165ac6dee",
+    fileSize: "108 MB",
+    fileSizeBytes: 113461192,
   },
 };
+
 
 
 // HEAD-check for om en given artefakt findes. Vite dev serverer index.html som
@@ -96,6 +95,9 @@ export const DOWNLOADS: Record<DownloadKind, DownloadArtifact> = {
 // "aktiv".
 export async function checkArtifactAvailable(artifact: DownloadArtifact): Promise<boolean> {
   if (!artifact.available || !artifact.path) return false;
+  // Eksterne URLs (GitHub Releases) tillader ikke CORS HEAD-check fra browser.
+  // Vi stoler på konfigurationen for absolute URLs.
+  if (/^https?:\/\//i.test(artifact.path)) return true;
   try {
     const res = await fetch(artifact.path, { method: "HEAD" });
     if (!res.ok) return false;
@@ -106,6 +108,7 @@ export async function checkArtifactAvailable(artifact: DownloadArtifact): Promis
     return false;
   }
 }
+
 
 // Bagudkompatibel wrapper — bruges stadig af eksisterende komponenter.
 export async function checkDownloadAvailable(): Promise<boolean> {
@@ -130,19 +133,27 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: "0.15.0-a",
-    date: "2026-07-13", time: "19:05", type: "feature",
-    filename: "NOVYX_v0.15.0-a.zip", fileSize: "117 MB",
-    highlight: "M1 · Ægte Windows-data på Dashboardet — BIOS, TPM, Secure Boot, ping/jitter, admin-genstart",
+    date: "2026-07-14", time: "12:45", type: "feature",
+    filename: "NOVYX-Setup-0.15.0-a.exe", fileSize: "79,4 MB",
+    highlight: "Første officielle Windows-release via GitHub — NSIS installer som primær build",
     notes: [
-      "Dashboard: live CPU-, RAM-, GPU- og disk-forbrug side om side som fire kort, hvert med progressbar",
-      "Dashboard: netværks-sektion med download/upload, ping mod 1.1.1.1 (avg/jitter/tab) og oppetid",
-      "Dashboard: systemstatus-kort med Windows-version + build, BIOS/UEFI (version, producent, dato), Secure Boot, TPM (present/ready/enabled + producent) og Windows Defender (realtime, motor, sidste scan)",
-      "Dashboard: 'Seneste scanning' og 'Seneste optimering' huskes på tværs af genstart via userData/state.json",
-      "Ny knap 'Kør som administrator' — genstarter hele NOVYX elevated via UAC (kun én prompt for hele sessionen)",
-      "Sundhedsscore baseret på rigtige data: CPU-load, hukommelse, CPU-temp, GPU-load, ping/jitter/tab",
-      "IPC: sys:info (WMI/CIM med caching), sys:ping (System.Net.NetworkInformation.Ping med jitter-beregning), state:read/setLastScan/setLastOptimize, app:isElevated/relaunchAsAdmin",
+      "Ny primær download: NOVYX-Setup-0.15.0-a.exe (NSIS installer, 79,4 MB) — installationsguide, Start-menu-genvej, skrivebordsgenvej, kan afinstalleres via Apps & Features",
+      "Portable alternativ: NOVYX-0.15.0-a-win-x64.zip (108 MB) — ingen installation, udpak og kør",
+      "Begge artefakter bygges via GitHub Actions og udgives som GitHub Release (v0.15.0-a) — stabil versionsstyring og direkte download-links",
+      "SHA-256 (Setup.exe): 958d3e6567c2e774a8c01bc4db54a5cc36f61930f10f8d03c31ce28a676b4b20",
+      "SHA-256 (Portable.zip): d4cdc9036e2b52c2fe80acbc1ba5fbd30dcb6ff2b2ed9701933e233165ac6dee",
+      "M1 · Ægte Windows-data på Dashboardet: live CPU/RAM/GPU/disk, netværk (download/upload, ping mod 1.1.1.1 med jitter/tab), oppetid",
+      "M1 · Systemstatus: Windows-version + build, BIOS/UEFI, Secure Boot, TPM, Windows Defender",
+      "M1 · 'Seneste scanning' og 'Seneste optimering' huskes via userData/state.json",
+      "M1 · 'Kør som administrator'-knap — genstarter NOVYX elevated via én UAC-prompt",
+      "M2 · System Scan: PowerShell-baseret scanning af systemets sundhed",
+      "M3 · Repair Center: 13 system-værktøjer (SFC, DISM, DNS flush m.fl.)",
+      "M4 · Game Boost: launcher-detektion, registry-optimeringer og dashboard",
+      "M5 · Hardware Center: fuld CIM-indsamling af hardware-data",
     ],
   },
+
+
 
   {
     version: "0.14.3-a",
